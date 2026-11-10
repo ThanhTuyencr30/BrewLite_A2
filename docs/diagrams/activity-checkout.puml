@@ -1,0 +1,71 @@
+@startuml
+skinparam conditionStyle diamond
+
+|#LavenderBlush|Người dùng|
+|#LightCyan|Frontend|
+|#OldLace|Backend|
+
+|Người dùng|
+start
+label CheckCartLoop
+:Chọn Đặt hàng;
+
+|Frontend|
+:Gọi kiểm tra giỏ hàng;
+
+|Backend|
+:Xác minh giá hiện tại và tồn kho sản phẩm;
+
+|Frontend|
+if (Giỏ hợp lệ?) then ([Không])
+  :Thông báo giỏ có vấn đề,\nyêu cầu cập nhật;
+  |Người dùng|
+  :Cập nhật giỏ hàng;
+  goto CheckCartLoop
+else ([Có])
+  if (Có access token?) then ([Chưa])
+    :Chuyển tới đăng nhập, giữ\nđường dẫn quay lại /cart;
+    |Người dùng|
+    :Đăng nhập;
+    goto CheckCartLoop
+  else ([Có])
+    :Gửi yêu cầu tạo đơn kèm\nJWT;
+    |Backend|
+    if (Token hợp lệ?) then ([Không hợp lệ])
+      |Frontend|
+      :Chuyển tới đăng nhập, giữ\nđường dẫn quay lại /cart;
+      |Người dùng|
+      :Đăng nhập;
+      goto CheckCartLoop
+    else ([Hợp lệ])
+      |Backend|
+      :Kiểm tra lại sản phẩm, size,\ntopping, promotion và giá;
+      if (Đủ tồn kho món, topping và\nnguyên liệu?) then ([Không đủ])
+        :Từ chối yêu cầu và hoàn tác\ntransaction;
+        |Frontend|
+        :Thông báo món hoặc\nnguyên liệu thiếu hàng;
+        |Người dùng|
+        :Điều chỉnh giỏ hàng;
+        goto CheckCartLoop
+      else ([Đủ])
+        |Backend|
+        :Tính giá và kiểm tra mã giảm\ngiá;
+        if (Dữ liệu đơn hợp lệ?) then ([Không hợp lệ])
+          |Frontend|
+          :Thông báo lỗi dữ liệu đơn\nhoặc mã giảm giá;
+          |Người dùng|
+          stop
+        else ([Hợp lệ])
+          |Backend|
+          :Trừ tồn kho nguyên tử trong\ntransaction;
+          :Tạo đơn PENDING, hạn\nthanh toán 15 phút;
+          |Frontend|
+          :Hiển thị đơn PENDING và\nhạn thanh toán;
+          |Người dùng|
+          stop
+        endif
+      endif
+    endif
+  endif
+endif
+@enduml

@@ -1,0 +1,68 @@
+@startuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+rnote over "Khách hàng", "PostgreSQL" #White
+
+end rnote
+
+actor "Khách hàng" as Customer #Pink
+participant "Giao diện Next.js" as NextJS #LightCyan
+participant "API NestJS" as NestJS #OldLace
+database "PostgreSQL" as Postgres #LightCyan
+
+Customer -> NextJS : Nhấn Đặt hàng
+activate NextJS
+
+NextJS -> NestJS : Kiểm tra giỏ hàng (giá hiện tại, tồn kho sản phẩm)
+activate NestJS
+
+NestJS -> Postgres : Đọc sản phẩm, giá và tồn kho
+activate Postgres
+Postgres --> NestJS : Dữ liệu sản phẩm
+deactivate Postgres
+
+NestJS --> NextJS : Kết quả kiểm tra giỏ
+deactivate NestJS
+
+alt Giỏ có vấn đề (sai giá, hết hàng)
+    NextJS --> Customer : Báo lỗi và yêu cầu cập nhật giỏ hàng
+
+else Giỏ hợp lệ nhưng chưa đăng nhập
+    NextJS --> Customer : Chuyển tới đăng nhập (quay về /cart);\nbấm Đặt hàng lần nữa sau khi đăng nhập
+
+else Giỏ hợp lệ và đã đăng nhập
+    NextJS -> NestJS : POST /orders {items, discountCode?} kèm JWT
+    activate NestJS
+
+    NestJS -> NestJS : Xác thực JWT
+    NestJS -> Postgres : Bắt đầu transaction: kiểm tra lại sản phẩm, topping, mã giảm giá, nguyên liệu
+    activate Postgres
+    Postgres --> NestJS : Dữ liệu và tồn kho hiện tại
+    deactivate Postgres
+
+    NestJS -> NestJS : Tính lại giá, áp mã giảm giá (nếu có)
+
+    alt Đủ tồn kho và dữ liệu hợp lệ
+        NestJS -> Postgres : Trừ tồn kho nguyên tử, tạo Order PENDING\n(hạn 15 phút), OrderItem, lịch sử trạng thái
+        activate Postgres
+        Postgres --> NestJS : Commit, trả về mã đơn
+        deactivate Postgres
+
+        NestJS --> NextJS : Thông tin đơn PENDING và hạn thanh toán
+        NextJS --> Customer : Hiển thị đơn chờ thanh toán
+
+    else Thiếu hàng hoặc mã giảm giá không hợp lệ
+        NestJS -> Postgres : Rollback transaction
+        activate Postgres
+        Postgres --> NestJS :
+        deactivate Postgres
+
+        NestJS --> NextJS : Trả lỗi (thiếu hàng / dữ liệu đơn)
+        deactivate NestJS
+        NextJS --> Customer : Thông báo lỗi, yêu cầu cập nhật giỏ hàng
+        deactivate NextJS
+    end
+end
+
+@enduml

@@ -180,3 +180,6 @@ Task 1.3 – Đặc tả Use Case UC-15 & UC-18: Đặt hàng (tạo đơn) và 
 PHỤ LỤC – MÃ NGUỒN SƠ ĐỒ USE CASE (PLANTUML)
 use-case-overview.puml
 
+### Sơ đồ phân rã Use Case Đặt hàng & Thanh toán
+
+![Sơ đồ Use Case Đặt hàng và Thanh toán](../diagrams/use-case-checkout.png)
