@@ -5,6 +5,7 @@ import {
   Param,
   ParseEnumPipe,
   ParseUUIDPipe,
+  Patch, // <-- Thêm Patch
   Post,
   Query,
   Req,
@@ -49,5 +50,14 @@ export class OrdersController {
     @Body('reason') reason?: string,
   ) {
     return this.ordersService.cancelOrder(id, request.user.id, reason);
+  }
+
+  // Bổ sung Route cập nhật trạng thái đơn hàng cho Task 10
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('status') status: OrderStatus,
+  ) {
+    return this.ordersService.updateStatus(id, status);
   }
 }
