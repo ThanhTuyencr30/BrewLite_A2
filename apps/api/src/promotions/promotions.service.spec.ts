@@ -116,4 +116,32 @@ describe('PromotionsService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('rejects unknown and expired codes with distinct messages', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    const items = [
+      { productId: 1, size: 'S' as const, quantity: 1, expectedUnitPrice: 50000 },
+    ];
+    await expect(service.validate({ code: 'UNKNOWN', items }))
+      .rejects.toThrow('Promotion code is invalid or inactive.');
+
+    findUnique.mockResolvedValueOnce({
+      isActive: true,
+      startsAt: new Date(Date.now() - 120_000),
+      endsAt: new Date(Date.now() - 60_000),
+    });
+    await expect(service.validate({ code: 'EXPIRED', items }))
+      .rejects.toThrow('Promotion code has expired.');
+    expect(validateCart).not.toHaveBeenCalled();
+  });
+
+  it('rejects a code before its start date', async () => {
+    findUnique.mockResolvedValue({
+      isActive: true,
+      startsAt: new Date(Date.now() + 60_000),
+      endsAt: new Date(Date.now() + 120_000),
+    });
+    await expect(service.validate({ code: 'FUTURE', items }))
+      .rejects.toThrow('Promotion code is not active yet.');
+  });
 });
