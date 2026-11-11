@@ -1,3 +1,17 @@
+import { jest } from '@jest/globals';
+
+// 1. Mock đầy đủ các decorator/exception của NestJS để bypass rào cản ESM trong pnpm monorepo
+jest.mock('@nestjs/common', () => ({
+  BadRequestException: class BadRequestException extends Error {},
+  NotFoundException: class NotFoundException extends Error {},
+  Injectable: () => () => {},
+  Global: () => () => {},
+}));
+
+// 2. Mock PrismaService để không import thật ConfigService
+jest.mock('../database/prisma.service', () => ({
+  PrismaService: class PrismaService {},
+}));
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrderStateMachine } from './order-state-machine.service';
@@ -11,9 +25,9 @@ describe('OrdersService.createOrder', () => {
     ingredient: { findMany: jest.fn(), updateMany: jest.fn() },
     order: { create: jest.fn() },
   };
-  const prisma = {
-    $transaction: (callback: (client: typeof tx) => unknown) => callback(tx),
-  } as unknown as PrismaService;
+const prisma = {
+  $transaction: (callback: any) => callback(tx),
+} as unknown as PrismaService
   const service = new OrdersService(prisma, new OrderStateMachine());
 
   const americano = {
