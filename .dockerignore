@@ -1,0 +1,16 @@
+.git
+.pnpm-store
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+coverage
+**/coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+.env
+.env.*
+**/.env
+**/.env.*

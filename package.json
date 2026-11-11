@@ -1,0 +1,12 @@
+{
+  "name": "brewlite-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "dev": "pnpm --parallel run dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
