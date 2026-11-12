@@ -2,10 +2,6 @@
 skinparam BoxPadding 10
 skinparam ParticipantPadding 10
 
-rnote over "Khách hàng", "PostgreSQL" #White
-
-end rnote
-
 actor "Khách hàng" as Customer #Pink
 participant "Giao diện Next.js" as NextJS #LightCyan
 participant "API NestJS" as NestJS #OldLace
@@ -55,7 +51,7 @@ else Giỏ hợp lệ và đã đăng nhập
     else Thiếu hàng hoặc mã giảm giá không hợp lệ
         NestJS -> Postgres : Rollback transaction
         activate Postgres
-        Postgres --> NestJS :
+        Postgres --> NestJS
         deactivate Postgres
 
         NestJS --> NextJS : Trả lỗi (thiếu hàng / dữ liệu đơn)
