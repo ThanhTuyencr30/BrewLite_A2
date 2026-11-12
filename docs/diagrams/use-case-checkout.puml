@@ -4,10 +4,16 @@ skinparam packageStyle rectangle
 
 title BrewLite – Phần rã Use Case: Đặt hàng & Thanh toán
 
+' =========================
+' Actors
+' =========================
 actor "Khách hàng" as Customer
 actor "Cổng VNPAY\n(hệ thống ngoài)" as VNPAY
 actor "Cổng thanh toán giả lập (mock)\nVí / Thẻ / QR" as MockPayment
 
+' =========================
+' System Boundary & Use Cases
+' =========================
 rectangle "BrewLite – Phần rã Use Case: Đặt hàng & Thanh toán" {
 
     usecase "UC-15 Đặt hàng (tạo đơn\nPENDING)" as UC15
@@ -29,7 +35,7 @@ rectangle "BrewLite – Phần rã Use Case: Đặt hàng & Thanh toán" {
 }
 
 ' =========================
-' Actor associations
+' Actor Associations
 ' =========================
 Customer --> UC15
 Customer --> UC18
@@ -39,28 +45,26 @@ VNPAY --> UC34
 MockPayment --> UC23
 
 ' =========================
-' Include relationships
+' Include Relationships
 ' =========================
 UC15 ..> UC17 : <<include>>
 UC18 ..> UC19 : <<include>>
 UC23 ..> UC25 : <<include>>
 
 ' =========================
-' Extend relationships
+' Extend Relationships
 ' =========================
 UC16 ..> UC15 : <<extend>>
-
 UC24 ..> UC15 : <<extend>>\n[khi thanh toán thành công]
-
 UC25 ..> UC23 : <<extend>>\n[khi thanh toán thất bại]
 
 ' =========================
-' Generalization relationships
+' Generalization Relationships
 ' =========================
-UC20 -|> UC19
-UC21 -|> UC19
-UC22 -|> UC19
+UC20 --|> UC19
+UC21 --|> UC19
+UC22 --|> UC19
 
-UC34 -|> UC18
+UC34 --|> UC18
 
 @enduml

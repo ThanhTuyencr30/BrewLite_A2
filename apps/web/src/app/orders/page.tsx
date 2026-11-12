@@ -109,6 +109,9 @@ export default function OrderHistoryPage() {
         if (activeTab === "PROCESSING") {
           return ["PENDING", "PAID", "PREPARING", "READY"].includes(order.status);
         }
+        if (activeTab === "CANCELLED") {
+          return ["CANCELLED", "PAYMENT_FAILED"].includes(order.status);
+        }
         return order.status === activeTab;
       }),
     [activeTab, orders],

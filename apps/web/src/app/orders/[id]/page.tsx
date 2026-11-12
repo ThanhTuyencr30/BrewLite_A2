@@ -49,45 +49,63 @@ export default function OrderDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
+useEffect(() => {
     const token = getAccessToken();
     if (!token) {
       router.replace(loginUrl(`/orders/${id}`));
       return;
     }
 
-    const controller = new AbortController();
-    async function loadOrder(accessToken: string) {
-      setIsLoading(true);
+    let isMounted = true;
+
+    // Khai báo accessToken: string làm tham số truyền vào hàm
+    async function loadOrderData(accessToken: string, isSilent = false) {
+      if (!isSilent) setIsLoading(true);
       setLoadError("");
       try {
-        setOrder(await getOrder(id, accessToken, controller.signal));
-      } catch (error: unknown) {
-        if (controller.signal.aborted) {
-          return;
+        const data = await getOrder(id, accessToken); // Dùng accessToken đã được xác thực type string
+        if (isMounted) {
+          setOrder(data);
         }
+      } catch (error: unknown) {
+        if (!isMounted) return;
         if (error instanceof ApiError && error.status === 401) {
           clearAccessToken();
           router.replace(loginUrl(`/orders/${id}`));
           return;
         }
-        setLoadError(
-          error instanceof ApiError && error.status === 404
-            ? "Không tìm thấy đơn hàng."
-            : error instanceof Error
-              ? error.message
-              : "Không thể tải chi tiết đơn hàng.",
-        );
+        if (!isSilent) {
+          setLoadError(
+            error instanceof ApiError && error.status === 404
+              ? "Không tìm thấy đơn hàng."
+              : error instanceof Error
+                ? error.message
+                : "Không thể tải chi tiết đơn hàng.",
+          );
+        }
       } finally {
-        if (!controller.signal.aborted) {
+        if (!isSilent && isMounted) {
           setIsLoading(false);
         }
       }
     }
 
-    void loadOrder(token);
-    return () => controller.abort();
-  }, [id, retryCount, router]);
+    // 1. Tải dữ liệu ban đầu
+    void loadOrderData(token, false);
+
+    // 2. Polling mỗi 5 giây
+    const intervalId = setInterval(() => {
+      if (order?.status === "COMPLETED" || order?.status === "CANCELLED") {
+        return;
+      }
+      void loadOrderData(token, true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [id, retryCount, router, order?.status]);
 
   async function confirmCancel() {
     const token = getAccessToken();
