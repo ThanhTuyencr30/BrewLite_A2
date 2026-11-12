@@ -3321,25 +3321,35 @@ body {
   color: #994b3c;
 }
 
-.product-topping-list {
-  max-height: 180px;
+.product-detail-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.product-detail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   scrollbar-color: var(--figma-caramel) var(--figma-cream);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
 
-.product-topping-list::-webkit-scrollbar {
+.product-detail-scroll::-webkit-scrollbar {
   width: 6px;
 }
 
-.product-topping-list::-webkit-scrollbar-thumb {
+.product-detail-scroll::-webkit-scrollbar-thumb {
   background: var(--figma-caramel);
   border-radius: 999px;
 }
 
-.product-topping-list::-webkit-scrollbar-track {
+.product-detail-scroll::-webkit-scrollbar-track {
   background: var(--figma-cream);
   border-radius: 999px;
 }

@@ -54,4 +54,31 @@ describe('calculateProductPrice', () => {
       }),
     ).toThrow(RangeError);
   });
+
+  it('rejects a unit price or total that exceeds safe integer precision', () => {
+    expect(() =>
+      calculateProductPrice({
+        sizePrice: Number.MAX_SAFE_INTEGER,
+        toppingPrices: [1],
+        quantity: 1,
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      calculateProductPrice({
+        sizePrice: Number.MAX_SAFE_INTEGER,
+        toppingPrices: [],
+        quantity: 2,
+      }),
+    ).toThrow(RangeError);
+  });
+
+  it('rejects a non-finite topping price', () => {
+    expect(() =>
+      calculateProductPrice({
+        sizePrice: 22000,
+        toppingPrices: [Number.POSITIVE_INFINITY],
+        quantity: 1,
+      }),
+    ).toThrow(RangeError);
+  });
 });

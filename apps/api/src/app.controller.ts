@@ -9,4 +9,9 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('health')
+  getHealth(): { status: 'ok'; service: 'brewlite-api' } {
+    return { status: 'ok', service: 'brewlite-api' };
+  }
 }

@@ -91,7 +91,7 @@ export function ProductDetailScreen({
   }
 
   return (
-    <AppShell>
+    <AppShell className="product-detail-app">
       <PageHeader
         action={
           <Link
@@ -107,6 +107,7 @@ export function ProductDetailScreen({
         title="Chi tiết sản phẩm"
       />
 
+      <div className="product-detail-scroll">
       <Card className="mb-5 flex items-center gap-3 p-3">
         <div className="relative size-32 shrink-0 overflow-hidden rounded-2xl bg-stone-100">
           <Image
@@ -167,14 +168,14 @@ export function ProductDetailScreen({
 
       <section className="mb-4">
         <SectionTitle title="Chọn lượng đá" />
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid w-full min-w-0 grid-cols-3 gap-2">
           {iceOptions.map((option) => (
             <button
               aria-pressed={ice === option.id}
-              className={`min-h-11 rounded-xl bg-white px-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel ${
+              className={`min-h-11 w-full min-w-0 break-words rounded-xl border-2 px-1.5 text-center text-xs font-semibold leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel sm:text-sm ${
                 ice === option.id
-                  ? "ring-2 ring-caramel text-caramel"
-                  : "text-ink hover:bg-amber-50"
+                  ? "border-caramel bg-amber-50 text-caramel shadow-sm"
+                  : "border-stone-200 bg-white text-ink hover:border-caramel/60 hover:bg-amber-50"
               }`}
               key={option.id}
               onClick={() => setIce(option.id)}
@@ -188,7 +189,7 @@ export function ProductDetailScreen({
 
       <section className="mb-5">
         <SectionTitle title="Topping" />
-        <Card className="product-topping-list divide-y divide-stone-100 p-3">
+        <Card className="divide-y divide-stone-100 p-3">
           {toppings.map((topping) => (
             <label
               className="flex min-h-9 cursor-pointer items-center justify-between gap-3 py-1 text-sm font-medium text-ink"
@@ -209,6 +210,8 @@ export function ProductDetailScreen({
           ))}
         </Card>
       </section>
+
+      </div>
 
       <BottomActionBar>
         <Button disabled={soldOut} fullWidth onClick={addToCart}>

@@ -479,9 +479,17 @@ export function ResultDialog({
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[430px] bg-cream px-4 pb-8 pt-5 shadow-xl sm:px-5">
+    <main
+      className={`mx-auto min-h-screen w-full max-w-[430px] bg-cream px-4 pb-8 pt-5 shadow-xl sm:px-5 ${className}`}
+    >
       {children}
     </main>
   );
