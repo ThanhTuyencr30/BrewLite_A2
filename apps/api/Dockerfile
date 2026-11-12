@@ -24,4 +24,4 @@ ENV NODE_ENV=production
 COPY --from=builder /app /app
 
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["sh", "apps/api/docker-entrypoint.sh"]
