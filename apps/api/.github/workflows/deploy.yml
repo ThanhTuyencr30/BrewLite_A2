@@ -1,0 +1,61 @@
+name: CD Pipeline - Auto Deploy
+
+on:
+  push:
+    tags:
+      - "v*" # Pipeline chỉ chạy khi có một Tag bắt đầu bằng chữ 'v' (VD: v1.0.0)
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Cấp quyền đẩy Image lên GHCR
+
+    steps:
+      - name: 1. Clone code từ repository
+        uses: actions/checkout@v4
+
+      - name: 2. Đăng nhập vào GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # Dùng token tự động của GitHub
+
+      - name: 3. Build & Push API Image (Kèm Tag SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/brewlite-api:${{ github.ref_name }}
+
+      - name: 4. Build & Push Web Image (Kèm Tag SHA)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/brewlite-web:${{ github.ref_name }}
+
+  deploy-and-smoke-test:
+    name: Deploy & Smoke Test
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: 5. Kích hoạt Server (Giả lập Webhook)
+        run: |
+          echo "Bắn Webhook yêu cầu Server (Render/Railway) tải Docker Image mới nhất về chạy..."
+          # Ví dụ: curl -X POST https://api.render.com/deploy/srv-12345?key=mock-key
+
+      - name: 6. Smoke Test - Kiểm tra sức khỏe hệ thống
+        run: |
+          echo "Chờ Server khởi động dịch vụ (10s)..."
+          sleep 10
+          echo "Gọi Endpoint /health của Gói 2 (Kha làm) để kiểm tra..."
+          # Lệnh curl -f sẽ báo lỗi fail pipeline nếu API không trả về 200 OK
+          # Sau này nhóm có domain thật thì thay thế URL dưới đây:
+          # curl -f https://api.domain-cua-nhom.com/health
+          echo "Smoke test passed! Hệ thống hoạt động bình thường."

@@ -122,6 +122,7 @@ async function postJson<T>(
   body: unknown,
   signal?: AbortSignal,
   token?: string,
+  headers: Record<string, string> = {},
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
@@ -130,6 +131,7 @@ async function postJson<T>(
       Accept: "application/json",
       "Content-Type": "application/json",
       ...authHeaders(token),
+      ...headers,
     },
     body: JSON.stringify(body),
   });
@@ -169,6 +171,7 @@ export function submitPayment(
     },
     signal,
     token,
+    { "Idempotency-Key": idempotencyKey },
   );
 }
 

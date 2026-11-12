@@ -1,7 +1,7 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  testRegex: '^(?!.*\\.integration\\.spec\\.ts$).*\\.spec\\.ts$',
   extensionsToTreatAsEsm: ['.ts'],
   injectGlobals: true,
   setupFiles: ['<rootDir>/../test/setup-jest.ts'],

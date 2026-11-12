@@ -52,6 +52,7 @@ export class PaymentsService {
     userId: string,
     dto: CreatePaymentDto,
     ipAddress = '127.0.0.1',
+    idempotencyKey = dto.idempotencyKey,
   ): Promise<PaymentResult> {
     // 1. Kiểm tra đơn hàng tồn tại và thuộc về người dùng hiện tại.
     const order = await this.prisma.order.findUnique({
@@ -64,7 +65,7 @@ export class PaymentsService {
 
 
     const existing = await this.prisma.payment.findUnique({
-      where: { idempotencyKey: dto.idempotencyKey },
+      where: { idempotencyKey },
     });
 
     let payment: Payment;
@@ -92,7 +93,7 @@ export class PaymentsService {
 
         if (reset.count === 0) {
           const concurrent = await this.prisma.payment.findUnique({
-            where: { idempotencyKey: dto.idempotencyKey },
+            where: { idempotencyKey },
           });
           if (!concurrent) {
             throw new ConflictException('Payment retry could not be started.');
@@ -129,7 +130,7 @@ export class PaymentsService {
         payment = await this.prisma.payment.create({
           data: {
             orderId: order.id,
-            idempotencyKey: dto.idempotencyKey,
+            idempotencyKey,
             method: dto.method,
             amount: order.total,
             status: PaymentStatus.PENDING,
@@ -146,7 +147,7 @@ export class PaymentsService {
 
         if (isUniqueError) {
           const concurrent = await this.prisma.payment.findUnique({
-            where: { idempotencyKey: dto.idempotencyKey },
+            where: { idempotencyKey },
           });
 
           if (concurrent) {
