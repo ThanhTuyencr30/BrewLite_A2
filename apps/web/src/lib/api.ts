@@ -156,6 +156,7 @@ export function validateCart(items: CartValidationInputItem[]) {
 export function submitPayment(
   payload: PaymentRequest,
   token: string,
+  idempotencyKey: string,
   signal?: AbortSignal
 ): Promise<PaymentResponse> {
   return postJson<PaymentResponse>(
@@ -163,7 +164,7 @@ export function submitPayment(
     {
       orderId: payload.orderId,
       method: payload.method === "E_WALLET" ? "WALLET" : payload.method,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey,
       ...(payload.cardNumber && { cardNumber: payload.cardNumber }),
     },
     signal,
