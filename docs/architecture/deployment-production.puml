@@ -1,0 +1,62 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam node {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+}
+skinparam artifact {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+}
+skinparam database {
+  BackgroundColor #ECFDF5
+  BorderColor #059669
+}
+
+' === CLIENT DEVICE ===
+node "Client Device" <<device>> as Client {
+  node "Web Browser" <<executionEnvironment>> as Browser {
+    artifact "Next.js Client Bundle\n(React UI & Cart State)" as WebClient
+  }
+}
+
+' === DOCKER HOST SERVER ===
+node "Deployment Server (Docker Host)" <<device>> as Host {
+  node "Docker Bridge Network" <<network>> as DockerNet {
+
+    node "Container: brewlite-web\n(node:20-alpine | Port 3000)" <<executionEnvironment>> as WebContainer {
+      artifact "@brewlite/web\n(Next.js App)" as NextApp
+    }
+
+    node "Container: brewlite-api\n(node:20-alpine | Port 3001)" <<executionEnvironment>> as ApiContainer {
+      artifact "@brewlite/api\n(NestJS REST API & Cron)" as NestApp
+      artifact "Prisma Client" as PrismaClient
+    }
+
+    node "Container: brewlite-db\n(postgres:16-alpine | Port 5432)" <<executionEnvironment>> as DbContainer {
+      database "PostgreSQL 16\nDB: brewlite" as PostgresDB
+    }
+  }
+
+  storage "Docker Volume: db-data\n(/var/lib/postgresql/data)" as DbVolume
+}
+
+' === EXTERNAL SYSTEMS ===
+node "VNPay Sandbox Gateway\n(sandbox.vnpayment.vn)" <<externalSystem>> as VNPay {
+  artifact "VNPay Payment API\n(vpcpay.html & Return Callback)" as VNPayApi
+}
+
+' === CONNECTIONS ===
+Browser -down-> WebContainer : "HTTP (Port 3000)"
+WebClient .right.> ApiContainer : "REST API / JSON\n(Port 3001/api)"
+NextApp -[hidden]down- ApiContainer
+
+NestApp -down-> PrismaClient : "Internal"
+PrismaClient -down-> PostgresDB : "TCP / PostgreSQL\n(db:5432)"
+PostgresDB -right- DbVolume : "Mount"
+
+NestApp -right-> VNPayApi : "HTTPS (HMAC-SHA512)"
+
+@enduml

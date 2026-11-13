@@ -16,7 +16,7 @@ import { OrdersService } from './orders.service';
 import { OrderStatus } from '../generated/prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 
-type AuthenticatedRequest = Request & { user: { id: string } };
+type AuthenticatedRequest = Request & { user: { userId: string } };
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -25,7 +25,7 @@ export class OrdersController {
 
   @Post()
   createOrder(@Req() request: AuthenticatedRequest, @Body() dto: CreateOrderDto) {
-    return this.ordersService.createOrder(request.user.id, dto);
+    return this.ordersService.createOrder(request.user.userId, dto);
   }
 
   @Get('me')
@@ -34,12 +34,12 @@ export class OrdersController {
     @Query('status', new ParseEnumPipe(OrderStatus, { optional: true }))
     status?: OrderStatus,
   ) {
-    return this.ordersService.getMyOrders(request.user.id, status);
+    return this.ordersService.getMyOrders(request.user.userId, status);
   }
 
   @Get(':id')
   getOrderDetail(@Param('id', ParseUUIDPipe) id: string, @Req() request: AuthenticatedRequest) {
-    return this.ordersService.getOrderDetail(id, request.user.id);
+    return this.ordersService.getOrderDetail(id, request.user.userId);
   }
 
   @Post(':id/cancel')
@@ -48,6 +48,6 @@ export class OrdersController {
     @Req() request: AuthenticatedRequest,
     @Body('reason') reason?: string,
   ) {
-    return this.ordersService.cancelOrder(id, request.user.id, reason);
+    return this.ordersService.cancelOrder(id, request.user.userId, reason);
   }
 }

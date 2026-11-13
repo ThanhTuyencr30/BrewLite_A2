@@ -1,0 +1,83 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+skinparam packageStyle rectangle
+skinparam nodesep 30
+skinparam ranksep 35
+
+skinparam rectangle {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+skinparam component {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+}
+skinparam database {
+  BackgroundColor #ECFDF5
+  BorderColor #059669
+}
+skinparam cloud {
+  BackgroundColor #FFFBEB
+  BorderColor #D97706
+}
+
+actor "Khách hàng" as Customer
+
+package "Presentation Layer (@brewlite/web)" {
+  component "Next.js Web / PWA\n(UI, Cart State, API Client)" as NextApp
+}
+
+package "Application Layer (@brewlite/api - NestJS)" {
+  component "REST API & JWT AuthGuard" as Gateway
+
+  rectangle "Business Modules" {
+    component "Auth & Users" as AuthMod
+    component "Catalog & Promotions" as CatalogMod
+    component "Orders" as OrderMod
+    component "Payments" as PaymentMod
+  }
+
+  rectangle "Domain & Background" {
+    component "Order State Machine" as StateMachine
+    component "Optimistic Locking" as OptLock
+    component "Cron Scheduler\n(Hủy đơn quá hạn)" as Scheduler
+  }
+
+  Gateway --> AuthMod
+  Gateway --> CatalogMod
+  Gateway --> OrderMod
+  Gateway --> PaymentMod
+
+  OrderMod --> StateMachine
+  OrderMod --> OptLock
+  PaymentMod --> StateMachine
+  Scheduler --> StateMachine
+}
+
+package "Data Layer" {
+  component "Prisma ORM" as Prisma
+  database "PostgreSQL 16\n(brewlite)" as PostgresDB
+  Prisma -right-> PostgresDB : "SQL / ACID"
+}
+
+cloud "External Gateways" {
+  component "VNPay Sandbox" as VNPay
+  component "Mock Gateway\n(Ví / Thẻ / QR)" as MockPay
+}
+
+' === CONNECTIONS ===
+Customer -down-> NextApp : "HTTP/HTTPS"
+NextApp -down-> Gateway : "REST JSON / JWT"
+
+AuthMod -down-> Prisma
+CatalogMod -down-> Prisma
+OrderMod -down-> Prisma
+PaymentMod -down-> Prisma
+Scheduler -down-> Prisma
+
+PaymentMod -right-> VNPay : "HTTPS (HMAC)"
+PaymentMod -right-> MockPay : "Mock API"
+
+@enduml

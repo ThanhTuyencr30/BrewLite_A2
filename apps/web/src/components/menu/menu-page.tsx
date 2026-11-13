@@ -44,7 +44,6 @@ function SearchIcon() {
 export function MenuPage() {
   const { itemCount } = useCart();
   const [activeCategory, setActiveCategory] = useState("ca-phe");
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const menuContentRef = useRef<HTMLDivElement>(null);
@@ -131,7 +130,7 @@ export function MenuPage() {
 
       try {
         const nextProducts = await getProducts(
-          { search: debouncedSearch, category: selectedCategory },
+          { search: debouncedSearch },
           controller.signal,
         );
 
@@ -155,7 +154,7 @@ export function MenuPage() {
 
     void loadProducts();
     return () => controller.abort();
-  }, [debouncedSearch, selectedCategory, retryCount]);
+  }, [debouncedSearch, retryCount]);
 
   useEffect(() => {
     const contentElement = menuContentRef.current;
@@ -209,12 +208,11 @@ export function MenuPage() {
     };
   }, [categories, products]);
 
-  const hasActiveFilter = debouncedSearch.length > 0 || selectedCategory !== "all";
+  const hasActiveFilter = debouncedSearch.length > 0;
 
   function clearFilters() {
     setSearchQuery("");
     setDebouncedSearch("");
-    setSelectedCategory("all");
     searchInputRef.current?.focus();
   }
 
@@ -232,7 +230,6 @@ export function MenuPage() {
         onHome={() => {
           setSearchQuery("");
           setDebouncedSearch("");
-          setSelectedCategory("all");
           setActiveCategory("ca-phe");
         }}
       />
@@ -315,32 +312,6 @@ export function MenuPage() {
           </label>
         </div>
 
-        {categories.length > 0 && (
-          <div className="figma-category-pills" role="tablist" aria-label="Lọc theo danh mục">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selectedCategory === "all"}
-              className={selectedCategory === "all" ? "is-active" : ""}
-              onClick={() => setSelectedCategory("all")}
-            >
-              Tất cả
-            </button>
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                role="tab"
-                aria-selected={selectedCategory === category.slug}
-                className={selectedCategory === category.slug ? "is-active" : ""}
-                onClick={() => setSelectedCategory(category.slug)}
-              >
-                {category.name}
-              </button>
-            ))}
-          </div>
-        )}
-
         {(hasActiveFilter || isSearching) && (
           <p className="figma-search-status" aria-live="polite">
             {isSearching
@@ -363,9 +334,19 @@ export function MenuPage() {
                     aria-current={activeCategory === category.slug ? "true" : undefined}
                     onClick={() => {
                       setActiveCategory(category.slug);
-                      document
-                        .getElementById(`category-${category.slug}`)
-                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      const content = menuContentRef.current;
+                      const section = document.getElementById(
+                        `category-${category.slug}`,
+                      );
+                      if (content && section) {
+                        const contentTop = content.getBoundingClientRect().top;
+                        const sectionTop = section.getBoundingClientRect().top;
+                        content.scrollTo({
+                          top:
+                            content.scrollTop + sectionTop - contentTop - 16,
+                          behavior: "smooth",
+                        });
+                      }
                     }}
                     key={category.id}
                   >
@@ -388,11 +369,10 @@ export function MenuPage() {
                   </span>
                   <h2>Không tìm thấy kết quả</h2>
                   <p>
-                    Không có đồ uống nào khớp với{" "}
-                    {debouncedSearch ? `"${debouncedSearch}"` : "danh mục đã chọn"}.
+                    Không có đồ uống nào khớp với từ khóa &quot;{debouncedSearch}&quot;.
                   </p>
                   <button type="button" onClick={clearFilters}>
-                    Xóa bộ lọc
+                    Xóa tìm kiếm
                   </button>
                 </section>
               ) : (

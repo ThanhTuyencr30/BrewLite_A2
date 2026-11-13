@@ -17,7 +17,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth/jwt-auth.guard";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { PaymentsService } from "./payments.service";
 
-type AuthenticatedRequest = Request & { user: { id: string } };
+type AuthenticatedRequest = Request & { user: { userId: string } };
 
 const DEFAULT_FRONTEND_URL = "http://localhost:3000";
 
@@ -58,7 +58,7 @@ export class PaymentsController {
     }
     // Truyền idempotencyKey vào service để kiểm tra trùng lặp
     return this.paymentsService.create(
-      request.user.id,
+      request.user.userId,
       dto,
       getClientIp(request),
       idempotencyKey
@@ -97,13 +97,13 @@ export class PaymentsController {
   @Get(":id")
   @UseGuards(JwtAuthGuard)
   findOne(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
-    return this.paymentsService.findOne(request.user.id, id);
+    return this.paymentsService.findOne(request.user.userId, id);
   }
 
   // Giả lập ngân hàng xác nhận đã nhận chuyển khoản QR.
   @Post(":id/confirm")
   @UseGuards(JwtAuthGuard)
   confirmQr(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
-    return this.paymentsService.confirmQr(request.user.id, id);
+    return this.paymentsService.confirmQr(request.user.userId, id);
   }
 }

@@ -1,0 +1,31 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+|Scheduler (@Cron)|
+start
+:Kích hoạt tác vụ định kỳ\nquét đơn hàng quá hạn;
+
+|Backend|
+:Truy vấn các đơn hàng có\nstatus = PENDING và expiresAt <= now();
+
+if (Có đơn hàng quá hạn?) then ([Không])
+  :Kết thúc chu kỳ quét;
+  stop
+else ([Có])
+  repeat
+    :Bắt đầu Prisma Transaction;
+    :Kiểm tra lại trạng thái đơn\n(tránh xung đột với luồng thanh toán);
+    if (Đơn vẫn ở trạng thái PENDING?) then ([Có])
+      :Chuyển trạng thái Order -> CANCELLED\n(OrderStateMachine);
+      :Ghi nhận cancelledAt & cancelReason\n("Quá hạn thanh toán 15 phút");
+      :Hoàn trả tồn kho (stock) cho\nProduct và Topping tương ứng;
+      :Lưu OrderStatusHistory;
+    else ([Không])
+      :Bỏ qua đơn hàng này;
+    endif
+  repeat while (Còn đơn quá hạn trong danh sách?) is ([Có])
+  -> [Không];
+  stop
+endif
+@enduml

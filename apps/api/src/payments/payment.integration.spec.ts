@@ -27,7 +27,7 @@ describe('PaymentsController idempotency header (Integration)', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate: (context: ExecutionContext) => {
-          context.switchToHttp().getRequest().user = { id: 'test-user' };
+          context.switchToHttp().getRequest().user = { userId: 'test-user' };
           return true;
         },
       })

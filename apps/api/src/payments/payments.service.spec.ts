@@ -92,6 +92,46 @@ describe('PaymentsService', () => {
     });
   });
 
+  it('creates a new payment attempt for a failed order with a new key and method', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      id: dto.orderId,
+      userId,
+      status: 'PAYMENT_FAILED',
+      total: 35000,
+      version: 1,
+      code: 'CC-123456',
+    });
+    prisma.payment.findUnique.mockResolvedValue(null);
+    prisma.payment.create.mockResolvedValue({
+      id: 'payment-retry-002',
+      orderId: dto.orderId,
+      idempotencyKey: 'test-payment-retry-002',
+      method: 'QR',
+      status: 'PENDING',
+      amount: 35000,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      providerTransactionId: null,
+      failureReason: null,
+    });
+    const result = await service.create(userId, {
+      orderId: dto.orderId,
+      idempotencyKey: 'test-payment-retry-002',
+      method: 'QR',
+    });
+
+    expect(result.status).toBe('PENDING');
+    expect(prisma.payment.create).toHaveBeenCalledWith({
+      data: {
+        orderId: dto.orderId,
+        idempotencyKey: 'test-payment-retry-002',
+        method: 'QR',
+        amount: 35000,
+        status: 'PENDING',
+      },
+    });
+  });
+
   it('returns the existing payment for the same request', async () => {
     prisma.order.findUnique.mockResolvedValue(order);
     prisma.payment.findUnique.mockResolvedValue(payment);

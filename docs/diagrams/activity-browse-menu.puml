@@ -1,0 +1,32 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+|Người dùng|
+start
+:Mở menu;
+
+|Frontend|
+:Yêu cầu tải menu;
+
+|Backend|
+:Đọc sản phẩm, giá và tồn kho\n(kể cả món hết hàng);
+:Trả dữ liệu menu;
+
+|Frontend|
+:Hiển thị món, giá và tồn kho;\nmón hết hàng vẫn hiện;
+
+|Người dùng|
+:Mở chi tiết món, chọn size,\ntopping và số lượng;
+
+|Frontend|
+if (Món đang bán và còn hàng?) then ([Không])
+  :Thông báo món ngừng bán hoặc\nhết hàng (tại chi tiết món);
+  |Người dùng|
+  stop
+else ([Có])
+  |Người dùng|
+  :Thêm món vào giỏ;
+  stop
+endif
+@enduml

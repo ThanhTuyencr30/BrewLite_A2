@@ -206,7 +206,7 @@ describe('OrdersService.cancelOrder', () => {
       version: 0,
       promotionId: 5,
       items: [{ productId: 1, productName: 'Americano', size: 'M', quantity: 1 }],
-      payment: null,
+      payments: [],
     });
     tx.order.updateMany.mockResolvedValue({ count: 1 });
 
@@ -231,7 +231,7 @@ describe('OrdersService.cancelOrder', () => {
       total: 68000,
       promotionId: null,
       items: [],
-      payment: { id: 'pay-1', status: 'SUCCEEDED' },
+      payments: [{ id: 'pay-1', status: 'SUCCEEDED' }],
     });
     tx.order.updateMany.mockResolvedValue({ count: 1 });
     tx.user.updateMany.mockResolvedValue({ count: 1 });

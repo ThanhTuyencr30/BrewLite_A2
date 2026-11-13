@@ -69,7 +69,14 @@ export class OrdersService {
   async cancelOrder(orderId: string, userId: string, reason?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, payment: true }
+      include: {
+        items: true,
+        payments: {
+          where: { status: PaymentStatus.SUCCEEDED },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      }
     });
 
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -115,8 +122,7 @@ export class OrdersService {
       await restoreIngredients(tx, order.items);
 
       // 3.5. Hoàn tiền (Nếu đơn đã thanh toán)
-      const paidPayment =
-        order.payment?.status === PaymentStatus.SUCCEEDED ? order.payment : null;
+      const paidPayment = order.payments[0] ?? null;
       if (paidPayment) {
         await tx.payment.update({
           where: { id: paidPayment.id },

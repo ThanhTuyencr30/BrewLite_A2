@@ -1,0 +1,54 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+|Người dùng|
+start
+:Tại trang chi tiết đơn (PENDING),\nchọn phương thức thanh toán;
+
+|Frontend|
+:Tạo/lấy idempotencyKey\nvà gửi yêu cầu thanh toán;
+
+|Backend|
+if (idempotencyKey đã tồn tại?) then ([Có])
+  :Trả về kết quả giao dịch\nđã lưu trước đó;
+  |Frontend|
+  :Hiển thị trạng thái thanh toán;
+  |Người dùng|
+  stop
+else ([Không])
+  |Backend|
+  if (Phương thức thanh toán?) then ([VNPay])
+    :Tạo giao dịch Payment (PENDING)\nvà sinh URL thanh toán HMAC-SHA512;
+    |Frontend|
+    :Chuyển hướng sang cổng VNPay;
+    |Cổng VNPay|
+    :Người dùng thực hiện thanh toán;
+    :Gửi kết quả về Return / IPN URL;
+    |Backend|
+    :Xác thực chữ ký bảo mật (Checksum);
+  else ([Mock: Ví / Thẻ / QR])
+    |Cổng giả lập (Mock)|
+    :Mô phỏng xử lý giao dịch;
+  endif
+
+  |Backend|
+  if (Giao dịch thành công?) then ([Có])
+    :Cập nhật Payment = SUCCEEDED;
+    :Chuyển Order sang PAID\n(OrderStateMachine);
+    :Cộng điểm thưởng (loyaltyPoints)\nvà ghi lịch sử trạng thái;
+    |Frontend|
+    :Hiển thị xác nhận thanh toán thành công;
+    |Người dùng|
+    stop
+  else ([Không])
+    |Backend|
+    :Cập nhật Payment = FAILED;
+    :Chuyển Order sang PAYMENT_FAILED;
+    |Frontend|
+    :Thông báo thanh toán thất bại;
+    |Người dùng|
+    stop
+  endif
+endif
+@enduml

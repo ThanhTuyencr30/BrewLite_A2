@@ -40,8 +40,6 @@ export default function ProfilePage() {
     }
 
     const controller = new AbortController();
-    setPromotionState("loading");
-    setPromotionError("");
     void getPromotions(token, controller.signal)
       .then((result) => {
         setPromotions(result);

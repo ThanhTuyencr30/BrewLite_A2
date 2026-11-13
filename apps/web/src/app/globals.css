@@ -1114,41 +1114,6 @@ body {
   width: 22px;
 }
 
-.figma-category-pills {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 6px;
-  margin: 0 10px 10px 0;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-}
-
-.figma-category-pills::-webkit-scrollbar {
-  display: none;
-}
-
-.figma-category-pills button {
-  background: var(--figma-card);
-  border: 1px solid var(--figma-line);
-  border-radius: 999px;
-  color: var(--figma-brown);
-  cursor: pointer;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 30px;
-  padding: 0 12px;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-  white-space: nowrap;
-}
-
-.figma-category-pills button.is-active {
-  background: var(--figma-brown);
-  border-color: var(--figma-brown);
-  color: #ffffff;
-}
-
 .figma-search-status {
   color: var(--figma-muted);
   font-size: 12px;

@@ -1,0 +1,18 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+actor "Khách hàng" as Customer
+
+rectangle "Phân hệ Giỏ hàng" {
+  usecase "UC-07 Xem giỏ hàng & tổng tiền" as UC07
+  usecase "UC-08 Sửa số lượng sản phẩm" as UC08
+  usecase "UC-09 Xóa sản phẩm /\nlàm trống giỏ" as UC09
+}
+
+Customer -- UC07
+Customer -- UC08
+Customer -- UC09
+@enduml

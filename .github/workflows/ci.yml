@@ -15,6 +15,21 @@ jobs:
     name: Install, Lint, Test & Build
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: brewlite_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d brewlite_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/brewlite_db?schema=public
       JWT_SECRET: ci-quality-gate-placeholder-secret-32chars
@@ -37,6 +52,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm --filter @brewlite/api run prisma:generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @brewlite/api run prisma:deploy
 
       - name: Lint API
         run: pnpm --filter @brewlite/api run lint

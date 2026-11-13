@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+actor "Khách hàng" as Customer
+actor "Scheduler" as Scheduler
+
+rectangle "Phân hệ Theo dõi đơn hàng" {
+  usecase "UC-26 Xem xác nhận đơn hàng" as UC26
+  usecase "UC-27 Xem lịch sử đơn hàng" as UC27
+  usecase "UC-28 Theo dõi trạng thái đơn" as UC28
+  usecase "UC-29 Hủy đơn hàng" as UC29
+  usecase "UC-30 Đặt lại đơn hàng" as UC30
+  usecase "UC-31 Tự động hủy đơn\nPENDING quá hạn" as UC31
+}
+
+Customer -- UC26
+Customer -- UC27
+Customer -- UC28
+
+UC29 ..> UC28 : <<extend>>
+UC30 ..> UC28 : <<extend>>
+
+UC31 -- Scheduler
+@enduml

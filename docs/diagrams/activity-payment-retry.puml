@@ -1,0 +1,42 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Times New Roman"
+
+|Người dùng|
+start
+:Xem đơn hàng có trạng thái\nPAYMENT_FAILED (hoặc PENDING);
+:Nhấn "Thanh toán lại" / "Đổi phương thức";
+
+|Frontend|
+:Kiểm tra thời hạn đơn (expiresAt);
+
+|Backend|
+if (Đơn hàng đã hết hạn 15 phút\nhoặc đã bị CANCELLED?) then ([Có])
+  :Từ chối thanh toán &\nchuyển trạng thái sang CANCELLED (nếu chưa hủy);
+  |Frontend|
+  :Thông báo đơn đã hết hạn,\ngợi ý "Đặt lại đơn hàng";
+  |Người dùng|
+  stop
+else ([Không])
+  |Frontend|
+  :Cho phép chọn lại phương thức\n(Ví / Thẻ / QR / VNPay);
+  |Người dùng|
+  :Xác nhận phương thức mới và thanh toán;
+  |Frontend|
+  :Sinh idempotencyKey mới cho lần thử lại\nvà gửi request lên Backend;
+  |Backend|
+  :Khởi tạo bản ghi Payment mới\nvà xử lý thanh toán như luồng chuẩn;
+  if (Thanh toán lại thành công?) then ([Có])
+    :Cập nhật Order -> PAID &\ncộng điểm thưởng;
+    |Frontend|
+    :Hiển thị thanh toán thành công;
+    |Người dùng|
+    stop
+  else ([Không])
+    :Giữ trạng thái PAYMENT_FAILED;\n|Frontend|
+    :Hiển thị lỗi và cho phép thử lại\ntrong thời gian hiệu lực;
+    |Người dùng|
+    stop
+  endif
+endif
+@enduml

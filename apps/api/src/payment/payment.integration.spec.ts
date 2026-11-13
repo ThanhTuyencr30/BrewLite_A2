@@ -1,9 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { createRequire } from 'node:module';
+import request from 'supertest';
 import { PaymentModule } from './payment.module';
-
-const request = createRequire(import.meta.url)('supertest') as typeof import('supertest');
 
 describe('Payment Idempotency (Integration)', () => {
   let app: INestApplication;

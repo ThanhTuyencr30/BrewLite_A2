@@ -227,7 +227,7 @@ model Order {
   version       Int                  @default(0)
   expiresAt     DateTime?            @db.Timestamptz(3)
   items         OrderItem[]
-  payment       Payment?
+  payments      Payment[]
   statusHistory OrderStatusHistory[]
   createdAt     DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime             @updatedAt @db.Timestamptz(3)
@@ -271,7 +271,7 @@ model OrderItemTopping {
 
 model Payment {
   id                    String        @id @default(uuid()) @db.Uuid
-  orderId               String        @unique @db.Uuid
+  orderId               String        @db.Uuid
   order                 Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
   idempotencyKey        String        @unique
   method                PaymentMethod
