@@ -52,9 +52,21 @@ const menuOrder = new Map(
   ].map((slug, index) => [slug, index]),
 );
 
+function normalizeSlugSearch(search: string): string {
+  return search
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export interface FindProductsQuery {
   search?: string;
   category?: string;
+  outOfStock?: 'true' | 'false' | boolean;
 }
 
 export interface ProductSummary extends ProductRecord {
@@ -80,23 +92,35 @@ export class ProductsService {
 
   async findAll(query: FindProductsQuery = {}): Promise<ProductSummary[]> {
     const search = query.search?.trim();
+    const slugSearch = search ? normalizeSlugSearch(search) : '';
     const category = query.category?.trim();
+    const outOfStockFilter =
+      query.outOfStock === 'true' || query.outOfStock === true
+        ? { stock: { lte: 0 } }
+        : query.outOfStock === 'false' || query.outOfStock === false
+          ? { stock: { gt: 0 } }
+          : {};
+
+    const searchOr: Prisma.ProductWhereInput[] = [];
+    if (search) {
+      searchOr.push(
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      );
+      if (slugSearch) {
+        searchOr.push({ slug: { contains: slugSearch, mode: 'insensitive' } });
+      }
+    }
 
     const products = await this.prisma.product.findMany({
       where: {
         isAvailable: true,
+        ...outOfStockFilter,
         category: {
           isActive: true,
           ...(category && category !== 'all' ? { slug: category } : {}),
         },
-        ...(search
-          ? {
-              OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
+        ...(searchOr.length > 0 ? { OR: searchOr } : {}),
       },
       select: productSelect,
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],

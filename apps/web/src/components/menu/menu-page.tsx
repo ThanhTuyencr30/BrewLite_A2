@@ -11,6 +11,8 @@ import { clearAccessToken, getAccessToken } from "@/lib/auth-token";
 import { MenuSkeleton } from "./menu-skeleton";
 import { ProductCard } from "./product-card";
 
+const SEARCH_DEBOUNCE_MS = 250;
+
 function AccountIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -30,17 +32,32 @@ function CartIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
+    </svg>
+  );
+}
+
 export function MenuPage() {
   const { itemCount } = useCart();
   const [activeCategory, setActiveCategory] = useState("ca-phe");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const menuContentRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [accountUser, setAccountUser] = useState<User | null>(null);
   const [accountLoadFailed, setAccountLoadFailed] = useState(false);
+  const hasLoadedMenuRef = useRef(false);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -71,20 +88,57 @@ export function MenuPage() {
   }, []);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
-    async function loadMenu() {
-      setIsLoading(true);
+    async function loadCategories() {
+      try {
+        const nextCategories = await getCategories(controller.signal);
+        if (!controller.signal.aborted) {
+          setCategories(nextCategories);
+        }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        if (!controller.signal.aborted) {
+          setHasError(true);
+        }
+      }
+    }
+
+    void loadCategories();
+    return () => controller.abort();
+  }, [retryCount]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProducts() {
+      if (!hasLoadedMenuRef.current) {
+        setIsInitialLoading(true);
+      } else {
+        setIsSearching(true);
+      }
       setHasError(false);
 
       try {
-        const [nextCategories, nextProducts] = await Promise.all([
-          getCategories(controller.signal),
-          getProducts({ search: "", category: "all" }, controller.signal),
-        ]);
+        const nextProducts = await getProducts(
+          { search: debouncedSearch, category: selectedCategory },
+          controller.signal,
+        );
 
-        setCategories(nextCategories);
-        setProducts(nextProducts);
+        if (!controller.signal.aborted) {
+          setProducts(nextProducts);
+          hasLoadedMenuRef.current = true;
+        }
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -93,14 +147,15 @@ export function MenuPage() {
         setHasError(true);
       } finally {
         if (!controller.signal.aborted) {
-          setIsLoading(false);
+          setIsInitialLoading(false);
+          setIsSearching(false);
         }
       }
     }
 
-    void loadMenu();
+    void loadProducts();
     return () => controller.abort();
-  }, [retryCount]);
+  }, [debouncedSearch, selectedCategory, retryCount]);
 
   useEffect(() => {
     const contentElement = menuContentRef.current;
@@ -154,15 +209,32 @@ export function MenuPage() {
     };
   }, [categories, products]);
 
-  if (isLoading) {
+  const hasActiveFilter = debouncedSearch.length > 0 || selectedCategory !== "all";
+
+  function clearFilters() {
+    setSearchQuery("");
+    setDebouncedSearch("");
+    setSelectedCategory("all");
+    searchInputRef.current?.focus();
+  }
+
+  if (isInitialLoading) {
     return <MenuSkeleton />;
   }
 
   if (hasError) {
     return (
       <ConnectionError
-        onRetry={() => setRetryCount((count) => count + 1)}
-        onHome={() => setActiveCategory("ca-phe")}
+        onRetry={() => {
+          hasLoadedMenuRef.current = false;
+          setRetryCount((count) => count + 1);
+        }}
+        onHome={() => {
+          setSearchQuery("");
+          setDebouncedSearch("");
+          setSelectedCategory("all");
+          setActiveCategory("ca-phe");
+        }}
       />
     );
   }
@@ -203,81 +275,165 @@ export function MenuPage() {
       </header>
 
       <section className="figma-menu" id="menu" aria-labelledby="menu-title">
-          <Image
-            className="coffee-mark"
-            src="/products/coffee-mark.png"
-            alt=""
-            width={78}
-            height={72}
-            priority
-          />
-          <h1 id="menu-title">Menu hôm nay</h1>
+        <Image
+          className="coffee-mark"
+          src="/products/coffee-mark.png"
+          alt=""
+          width={78}
+          height={72}
+          priority
+        />
+        <h1 id="menu-title">Menu hôm nay</h1>
 
-          <div className="figma-menu__body">
-            {!hasError && categories.length > 0 && (
-              <nav className="vertical-categories" aria-label="Đi đến danh mục">
-                {categories
-                  .filter((category) =>
-                    products.some((product) => product.category.slug === category.slug),
-                  )
-                  .map((category) => (
-                    <button
-                      className={activeCategory === category.slug ? "is-active" : ""}
-                      type="button"
-                      aria-current={activeCategory === category.slug ? "true" : undefined}
-                      onClick={() => {
-                        setActiveCategory(category.slug);
-                        document
-                          .getElementById(`category-${category.slug}`)
-                          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      key={category.id}
-                    >
-                      {category.name}
-                    </button>
-                  ))}
-              </nav>
+        <div className="figma-search-wrap">
+          <label className="figma-search-box" htmlFor="menu-search-input">
+            <SearchIcon />
+            <input
+              ref={searchInputRef}
+              id="menu-search-input"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Tìm cà phê, trà sữa, soda..."
+              aria-label="Tìm kiếm món theo tên"
+              autoComplete="off"
+            />
+            {searchQuery.length > 0 && (
+              <button
+                type="button"
+                className="figma-search-clear"
+                aria-label="Xóa từ khóa tìm kiếm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setDebouncedSearch("");
+                  searchInputRef.current?.focus();
+                }}
+              >
+                ×
+              </button>
             )}
+          </label>
+        </div>
 
-            <div className="figma-menu__content" ref={menuContentRef}>
-              {products.length === 0 ? (
+        {categories.length > 0 && (
+          <div className="figma-category-pills" role="tablist" aria-label="Lọc theo danh mục">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedCategory === "all"}
+              className={selectedCategory === "all" ? "is-active" : ""}
+              onClick={() => setSelectedCategory("all")}
+            >
+              Tất cả
+            </button>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                role="tab"
+                aria-selected={selectedCategory === category.slug}
+                className={selectedCategory === category.slug ? "is-active" : ""}
+                onClick={() => setSelectedCategory(category.slug)}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(hasActiveFilter || isSearching) && (
+          <p className="figma-search-status" aria-live="polite">
+            {isSearching
+              ? "Đang tìm kiếm..."
+              : `Tìm thấy ${products.length} món phù hợp`}
+          </p>
+        )}
+
+        <div className="figma-menu__body">
+          {categories.length > 0 && products.length > 0 && (
+            <nav className="vertical-categories" aria-label="Đi đến danh mục">
+              {categories
+                .filter((category) =>
+                  products.some((product) => product.category.slug === category.slug),
+                )
+                .map((category) => (
+                  <button
+                    className={activeCategory === category.slug ? "is-active" : ""}
+                    type="button"
+                    aria-current={activeCategory === category.slug ? "true" : undefined}
+                    onClick={() => {
+                      setActiveCategory(category.slug);
+                      document
+                        .getElementById(`category-${category.slug}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    key={category.id}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+            </nav>
+          )}
+
+          <div
+            className={`figma-menu__content${isSearching ? " is-searching" : ""}`}
+            ref={menuContentRef}
+            aria-busy={isSearching}
+          >
+            {products.length === 0 ? (
+              hasActiveFilter ? (
+                <section className="figma-empty-state" aria-live="polite">
+                  <span className="figma-empty-state__icon" aria-hidden="true">
+                    <SearchIcon />
+                  </span>
+                  <h2>Không tìm thấy kết quả</h2>
+                  <p>
+                    Không có đồ uống nào khớp với{" "}
+                    {debouncedSearch ? `"${debouncedSearch}"` : "danh mục đã chọn"}.
+                  </p>
+                  <button type="button" onClick={clearFilters}>
+                    Xóa bộ lọc
+                  </button>
+                </section>
+              ) : (
                 <section className="figma-empty-state" aria-live="polite">
                   <h2>Menu đang được cập nhật</h2>
                   <p>Quay lại sau một chút để khám phá các món mới.</p>
                 </section>
-              ) : (
-                <div className="category-sections" aria-live="polite">
-                  {categories.map((category) => {
-                    const categoryProducts = products.filter(
-                      (product) => product.category.slug === category.slug,
-                    );
+              )
+            ) : (
+              <div className="category-sections" aria-live="polite">
+                {categories.map((category) => {
+                  const categoryProducts = products.filter(
+                    (product) => product.category.slug === category.slug,
+                  );
 
-                    if (categoryProducts.length === 0) {
-                      return null;
-                    }
+                  if (categoryProducts.length === 0) {
+                    return null;
+                  }
 
-                    return (
-                      <section
-                        className="category-section"
-                        id={`category-${category.slug}`}
-                        aria-labelledby={`category-title-${category.slug}`}
-                        key={category.id}
-                      >
-                        <h2 className="sr-only" id={`category-title-${category.slug}`}>
-                          {category.name}
-                        </h2>
-                        <div className="product-grid">
-                          {categoryProducts.map((product) => (
-                            <ProductCard product={product} key={product.id} />
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                  return (
+                    <section
+                      className="category-section"
+                      id={`category-${category.slug}`}
+                      aria-labelledby={`category-title-${category.slug}`}
+                      key={category.id}
+                    >
+                      <h2 className="sr-only" id={`category-title-${category.slug}`}>
+                        {category.name}
+                      </h2>
+                      <div className="product-grid">
+                        {categoryProducts.map((product) => (
+                          <ProductCard product={product} key={product.id} />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        </div>
       </section>
     </main>
   );

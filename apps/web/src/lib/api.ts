@@ -59,8 +59,8 @@ export function getCategories(signal: AbortSignal) {
 }
 
 export function getProducts(
-  filters: { search: string; category: string },
-  signal: AbortSignal
+  filters: { search: string; category: string; outOfStock?: boolean },
+  signal?: AbortSignal
 ) {
   const searchParams = new URLSearchParams();
 
@@ -70,6 +70,10 @@ export function getProducts(
 
   if (filters.category !== "all") {
     searchParams.set("category", filters.category);
+  }
+
+  if (typeof filters.outOfStock === "boolean") {
+    searchParams.set("outOfStock", String(filters.outOfStock));
   }
 
   const query = searchParams.toString();

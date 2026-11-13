@@ -49,7 +49,30 @@ describe('ProductsService', () => {
           category: expect.objectContaining({ slug: 'tra-trai-cay' }),
           OR: expect.arrayContaining([
             { name: { contains: 'đào', mode: 'insensitive' } },
+            { slug: { contains: 'dao', mode: 'insensitive' } },
           ]),
+        }),
+      }),
+    );
+  });
+
+  it('filters products by outOfStock flag', async () => {
+    findMany.mockResolvedValue([]);
+
+    await service.findAll({ outOfStock: 'true' });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          stock: { lte: 0 },
+        }),
+      }),
+    );
+
+    await service.findAll({ outOfStock: 'false' });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          stock: { gt: 0 },
         }),
       }),
     );

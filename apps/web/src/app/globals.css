@@ -1040,7 +1040,125 @@ body {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.025em;
-  margin: 8px 0 12px;
+  margin: 8px 0 10px;
+}
+
+.figma-search-wrap {
+  margin: 0 10px 10px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.figma-search-box {
+  align-items: center;
+  background: var(--figma-card);
+  border: 1px solid var(--figma-line);
+  border-radius: 12px;
+  display: flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.figma-search-box:focus-within {
+  border-color: var(--figma-caramel);
+  box-shadow: 0 0 0 3px rgba(198, 140, 86, 0.16);
+}
+
+.figma-search-box svg {
+  color: var(--figma-muted);
+  fill: none;
+  flex: 0 0 auto;
+  height: 17px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 17px;
+}
+
+.figma-search-box input {
+  background: transparent;
+  border: 0;
+  color: var(--figma-brown);
+  flex: 1;
+  font-size: 13px;
+  min-width: 0;
+  outline: none;
+  padding: 6px 0;
+}
+
+.figma-search-box input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.figma-search-box input::placeholder {
+  color: var(--figma-muted);
+}
+
+.figma-search-clear {
+  align-items: center;
+  background: #efe3d2;
+  border: 0;
+  border-radius: 50%;
+  color: var(--figma-brown);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  line-height: 1;
+  width: 22px;
+}
+
+.figma-category-pills {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin: 0 10px 10px 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.figma-category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.figma-category-pills button {
+  background: var(--figma-card);
+  border: 1px solid var(--figma-line);
+  border-radius: 999px;
+  color: var(--figma-brown);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 12px;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+
+.figma-category-pills button.is-active {
+  background: var(--figma-brown);
+  border-color: var(--figma-brown);
+  color: #ffffff;
+}
+
+.figma-search-status {
+  color: var(--figma-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.figma-menu__content.is-searching {
+  opacity: 0.65;
+  transition: opacity 150ms ease;
 }
 
 .figma-menu__body {
@@ -1215,8 +1333,9 @@ body {
   align-items: center;
   display: flex;
   flex-direction: column;
-  min-height: 550px;
-  padding-top: 150px;
+  justify-content: center;
+  min-height: 360px;
+  padding: 40px 10px 24px 0;
   text-align: center;
 }
 

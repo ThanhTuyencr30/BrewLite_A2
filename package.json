@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev": "pnpm --parallel run dev",
     "build": "pnpm --recursive run build",
-    "dev": "pnpm --parallel run dev"
+    "lint": "pnpm --recursive run lint",
+    "test": "pnpm --filter @brewlite/api run test",
+    "test:e2e": "pnpm --filter @brewlite/api run test:e2e",
+    "smoke": "node scripts/smoke-test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
