@@ -1,3 +1,4 @@
+// profile/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -7,9 +8,8 @@ import { AuthResultDialog } from "@/components/auth/auth-result-dialog";
 import { ApiError, getMe, getPromotions } from "@/lib/api";
 import type { Promotion, User } from "@/lib/api.types";
 import { formatCurrency } from "@/lib/format";
+import {clearAccessToken, getAccessToken, loginUrl} from "@/lib/auth-token";
 import styles from "./profile.module.css";
-
-const ACCESS_TOKEN_KEY = "accessToken";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -28,15 +28,21 @@ export default function ProfilePage() {
     null,
   );
 
-  useEffect(() => {
+   useEffect(() => {
     if (dialog !== "promotions") {
+      return;
+    }
+
+    const token = getAccessToken();
+    if (!token) {
+      router.replace(loginUrl("/profile"));
       return;
     }
 
     const controller = new AbortController();
     setPromotionState("loading");
     setPromotionError("");
-    void getPromotions(controller.signal)
+    void getPromotions(token, controller.signal)
       .then((result) => {
         setPromotions(result);
         setPromotionState("loaded");
@@ -54,7 +60,7 @@ export default function ProfilePage() {
       });
 
     return () => controller.abort();
-  }, [dialog, promotionRetry]);
+  }, [dialog, promotionRetry, router]);
 
   useEffect(() => {
     if (dialog !== "promotions") {
@@ -92,12 +98,12 @@ export default function ProfilePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [dialog]);
 
-  useEffect(() => {
+    useEffect(() => {
     const controller = new AbortController();
-    const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = getAccessToken();
 
     if (!token) {
-      router.replace("/login");
+      router.replace(loginUrl("/profile"));
       return () => controller.abort();
     }
 
@@ -111,8 +117,8 @@ export default function ProfilePage() {
         }
 
         if (error instanceof ApiError && error.status === 401) {
-          window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-          router.replace("/session-expired");
+          clearAccessToken();
+          router.replace("/session-expired?next=%2Fprofile");
           return;
         }
 
@@ -128,8 +134,8 @@ export default function ProfilePage() {
     return () => controller.abort();
   }, [router]);
 
-  function confirmLogout() {
-    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+   function confirmLogout() {
+    clearAccessToken();
     router.replace("/login");
   }
 

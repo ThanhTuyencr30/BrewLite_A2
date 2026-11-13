@@ -9,12 +9,23 @@ COPY . .
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/brewlite_db"
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter web build
+RUN pnpm --filter @brewlite/web build
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app /app
+
+# Chỉ copy những file cần thiết để chạy Next.js production
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "web", "start"]
+
+# Chuyển vào đúng thư mục web và chạy start bằng pnpm
+WORKDIR /app/apps/web
+CMD ["pnpm", "start"]

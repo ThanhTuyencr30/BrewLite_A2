@@ -15,6 +15,7 @@ export type {
   Topping,
 } from "../../../../packages/types/src";
 export type ProductSize = SizeCode;
+// Trong file web/src/lib/api.ts
 
 export function getProductDetails(
   id: string,
@@ -38,7 +39,7 @@ export function updateOrderStatus(
     {
       method: "PATCH",
       body: JSON.stringify({ status }),
-    },
+    }, // Không cần as any nữa vì fetchJson đã nhận RequestInit chuẩn TypeScript!
   );
 }
 

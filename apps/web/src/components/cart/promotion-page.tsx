@@ -7,7 +7,7 @@ import { useCart } from "@/components/cart/cart-provider";
 import { formatCurrency } from "@/lib/format";
 import { getPromotions, validatePromotion } from "@/lib/api";
 import type { Promotion, PromotionValidation } from "@/lib/api.types";
-
+import {getAccessToken, loginUrl} from "@/lib/auth-token";
 export function PromotionPage() {
   const router = useRouter();
   const { items, appliedPromotion, setAppliedPromotion } = useCart();
@@ -42,9 +42,14 @@ export function PromotionPage() {
   const previewDiscount =
     preview?.promotion.code === selectedCode ? preview.discount : 0;
   useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      window.location.assign(loginUrl("/cart/promotions"));
+      return;
+    }
     const controller = new AbortController();
     let isCurrent = true;
-    void getPromotions(controller.signal)
+        void getPromotions(token, controller.signal)
       .then((result) => {
         if (isCurrent) {
           setPromotions(result);

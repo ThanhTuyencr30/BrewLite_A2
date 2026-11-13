@@ -1,7 +1,21 @@
+// apps/web/src/app/session-expired/page.tsx
 import Link from "next/link";
 import styles from "@/components/auth/auth.module.css";
+import { loginUrl } from "@/lib/auth-token";
 
-export default function SessionExpiredPage() {
+function safeNextPath(value: string | undefined) {
+  // Chỉ nhận đường dẫn nội bộ, tránh chuyển hướng sang trang lạ.
+  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
+
+export default async function SessionExpiredPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const nextPath = safeNextPath(next);
+
   return (
     <main className={styles.authPage}>
       <div className={styles.authFrame}>
@@ -26,7 +40,7 @@ export default function SessionExpiredPage() {
             Vui lòng đăng nhập lại để tiếp tục. Giỏ hàng và đơn hàng đang thanh
             toán của bạn vẫn được giữ nguyên.
           </p>
-          <Link className={styles.expiredPrimary} href="/login">
+          <Link className={styles.expiredPrimary} href={loginUrl(nextPath)}>
             Đăng nhập lại <span aria-hidden="true">→</span>
           </Link>
           <Link className={styles.expiredSecondary} href="/">

@@ -1,3 +1,4 @@
+// auth-token.ts
 const ACCESS_TOKEN_KEY = "accessToken";
 
 export function getAccessToken(): string | null {

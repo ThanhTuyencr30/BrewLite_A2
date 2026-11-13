@@ -12,7 +12,7 @@ import { ProductsModule } from './products/products.module';
 import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-
+import { PrismaService } from './prisma.service'; 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -25,9 +25,10 @@ import { AuthModule } from './auth/auth.module';
     PromotionsModule,
     PaymentsModule,
     UsersModule,
-    AuthModule,
+    AuthModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PrismaService],
+  exports: [PrismaService],
 })
 export class AppModule {}
