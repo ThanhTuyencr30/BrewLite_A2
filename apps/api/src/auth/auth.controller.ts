@@ -1,5 +1,13 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { Get, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -7,7 +15,6 @@ import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PasswordResetService } from './password-reset.service';
-
 interface AuthenticatedRequest {
   user: {
     userId: string;
@@ -27,6 +34,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
