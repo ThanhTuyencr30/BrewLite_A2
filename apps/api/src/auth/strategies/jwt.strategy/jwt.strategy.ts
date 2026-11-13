@@ -1,28 +1,28 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
+    const secret = configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET is required to validate access tokens.');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      secretOrKey: secret,
     });
   }
 
-  validate(payload: unknown): { id: string } {
-    if (typeof payload !== 'object' || payload === null) {
-      throw new UnauthorizedException();
+  async validate(payload: { sub?: string; email?: string }) {
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
     }
-
-    const id = Reflect.get(payload, 'sub');
-    if (typeof id !== 'string' || id.length === 0) {
-      throw new UnauthorizedException();
-    }
-
-    return { id };
+    // Trả về object gắn vào request.user
+    return { userId: payload.sub, email: payload.email };
   }
 }

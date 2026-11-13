@@ -14,12 +14,19 @@ import { JwtStrategy } from './strategies/jwt.strategy/jwt.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '1h',
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is required to start the API.');
+        }
+
+        return {
+          secret,
+          signOptions: {
+            expiresIn: '1h',
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

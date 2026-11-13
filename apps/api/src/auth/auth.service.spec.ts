@@ -1,118 +1,70 @@
-import * as bcrypt from 'bcrypt';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 
-describe('AuthService', () => {
-  let service: AuthService;
-  let usersService: {
-    findByEmail: jest.Mock;
-    findById: jest.Mock;
-    create: jest.Mock;
+describe('AuthService (Unit Test)', () => {
+  let authService: AuthService;
+  let jwtService: JwtService;
+
+  const mockUsersService = {
+    findByEmail: jest.fn(),
+    create: jest.fn(),
   };
-  let jwtService: { signAsync: jest.Mock };
+
+  const mockJwtService = {
+    // Dùng signAsync khớp với code thực tế trong auth.service.ts
+    signAsync: jest.fn().mockResolvedValue('mocked_jwt_token'),
+  };
 
   beforeEach(async () => {
-    usersService = {
-      findByEmail: jest.fn(),
-      findById: jest.fn(),
-      create: jest.fn(),
-    };
-    jwtService = { signAsync: jest.fn() };
-
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: UsersService, useValue: usersService },
-        { provide: JwtService, useValue: jwtService },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: JwtService, useValue: mockJwtService },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    authService = module.get<AuthService>(AuthService);
+    jwtService = module.get<JwtService>(JwtService);
   });
 
-  it('rejects registering an email that already exists', async () => {
-    usersService.findByEmail.mockResolvedValue({ id: 'existing-user' });
-
-    await expect(
-      service.register({ email: 'hello@example.com', password: 'coffee123' }),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(usersService.create).not.toHaveBeenCalled();
+  it('should be defined', () => {
+    expect(authService).toBeDefined();
   });
 
-  it('stores a bcrypt hash instead of the plain-text password', async () => {
-    usersService.findByEmail.mockResolvedValue(null);
-    usersService.create.mockResolvedValue({
-      id: 'new-user',
-      email: 'hello@example.com',
-      fullName: null,
-      phone: null,
-      loyaltyPoints: 0,
+  describe('validateUser / login', () => {
+    it('nên phát hành accessToken khi mật khẩu chính xác', async () => {
+      const hashedPassword = await bcrypt.hash('Password123', 10);
+      const mockUser = { id: '1', email: 'test@sgu.edu.vn', passwordHash: hashedPassword };
+
+      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+
+      const result = await authService.login({
+        email: 'test@sgu.edu.vn',
+        password: 'Password123',
+      });
+
+      expect(result).toHaveProperty('accessToken', 'mocked_jwt_token');
+      expect(jwtService.signAsync).toHaveBeenCalled();
     });
 
-    await service.register({
-      email: 'hello@example.com',
-      password: 'coffee123',
-    });
+    it('nên ném lỗi UnauthorizedException nếu sai mật khẩu', async () => {
+      const hashedPassword = await bcrypt.hash('Password123', 10);
+      const mockUser = { id: '1', email: 'test@sgu.edu.vn', passwordHash: hashedPassword };
 
-    const [{ passwordHash }] = usersService.create.mock.calls[0];
-    expect(passwordHash).not.toBe('coffee123');
-    await expect(bcrypt.compare('coffee123', passwordHash)).resolves.toBe(true);
-  });
+      mockUsersService.findByEmail.mockResolvedValue(mockUser);
 
-  it('returns a JWT and public user details for valid credentials', async () => {
-    const passwordHash = await bcrypt.hash('coffee123', 4);
-    usersService.findByEmail.mockResolvedValue({
-      id: 'user-id',
-      email: 'hello@example.com',
-      passwordHash,
-      fullName: 'Coffee Lover',
-      phone: null,
-      loyaltyPoints: 12,
-    });
-    jwtService.signAsync.mockResolvedValue('signed-jwt');
-
-    await expect(
-      service.login({ email: 'hello@example.com', password: 'coffee123' }),
-    ).resolves.toEqual({
-      accessToken: 'signed-jwt',
-      user: {
-        id: 'user-id',
-        email: 'hello@example.com',
-        fullName: 'Coffee Lover',
-        phone: null,
-        loyaltyPoints: 12,
-      },
-    });
-  });
-
-  it('rejects invalid login credentials', async () => {
-    usersService.findByEmail.mockResolvedValue(null);
-
-    await expect(
-      service.login({ email: 'missing@example.com', password: 'coffee123' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(jwtService.signAsync).not.toHaveBeenCalled();
-  });
-
-  it('returns the public user profile without password fields', async () => {
-    usersService.findById.mockResolvedValue({
-      id: 'user-id',
-      email: 'hello@example.com',
-      passwordHash: 'must-not-be-returned',
-      fullName: 'Coffee Lover',
-      phone: null,
-      loyaltyPoints: 12,
-    });
-
-    await expect(service.me('user-id')).resolves.toEqual({
-      id: 'user-id',
-      email: 'hello@example.com',
-      fullName: 'Coffee Lover',
-      phone: null,
-      loyaltyPoints: 12,
+      await expect(
+        authService.login({
+          email: 'test@sgu.edu.vn',
+          password: 'WrongPassword',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

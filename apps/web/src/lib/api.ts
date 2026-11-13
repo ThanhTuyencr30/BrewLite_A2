@@ -15,10 +15,12 @@ import type {
   RegisterRequest,
   User,
 } from "./api.types";
-
+import {clearAccessToken} from "./auth-token";
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
 ).replace(/\/$/, "");
+
+/* ----------------------------- Errors ----------------------------- */
 
 export class ApiError extends Error {
   constructor(
@@ -28,175 +30,200 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+
+  get isUnauthorized() {
+    return this.status === 401;
+  }
 }
 
-export async function fetchJson<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json");
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+/* ------------------- Xử lý 401 tập trung (session) ------------------- */
 
-  if (!response.ok) {
-    throw new ApiError(
-      await readErrorMessage(response),
-      response.status,
-    );
-  }
+function handleSessionExpired() {
+  if (typeof window === "undefined") return;
+  clearAccessToken();
 
-  return response.json() as Promise<T>;
+  const { pathname, search } = window.location;
+  if (pathname === "/session-expired" || pathname === "/login") return;
+
+  window.location.assign(
+    `/session-expired?next=${encodeURIComponent(pathname + search)}`,
+  );
 }
 
-export function getCategories(signal: AbortSignal) {
-  return fetchJson<Category[]>("/categories", { signal });
-}
+/* ------------------------------ Core ------------------------------ */
 
-export function getProducts(
-  filters: { search: string; category: string; outOfStock?: boolean },
-  signal?: AbortSignal
-) {
-  const searchParams = new URLSearchParams();
-
-  if (filters.search) {
-    searchParams.set("search", filters.search);
-  }
-
-  if (filters.category !== "all") {
-    searchParams.set("category", filters.category);
-  }
-
-  if (typeof filters.outOfStock === "boolean") {
-    searchParams.set("outOfStock", String(filters.outOfStock));
-  }
-
-  const query = searchParams.toString();
-  return fetchJson<Product[]>(`/products${query ? `?${query}` : ""}`, {
-    signal,
-  });
-}
-
-function authHeaders(token?: string): Record<string, string> {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+interface RequestOptions {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  body?: unknown;
+  token?: string;
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
 }
 
 async function readErrorMessage(response: Response) {
   const responseBody: unknown = await response.json().catch(() => null);
   let message = `API request failed with status ${response.status}`;
-  if (responseBody && typeof responseBody === "object" && "message" in responseBody) {
-    if (typeof responseBody.message === "string") {
-      message = responseBody.message;
-    } else if (Array.isArray(responseBody.message)) {
-      const details = responseBody.message.filter(
+
+  if (
+    responseBody &&
+    typeof responseBody === "object" &&
+    "message" in responseBody
+  ) {
+    const raw = (responseBody as { message: unknown }).message;
+    if (typeof raw === "string") {
+      message = raw;
+    } else if (Array.isArray(raw)) {
+      const details = raw.filter(
         (part): part is string => typeof part === "string",
       );
-      if (details.length > 0) {
-        message = details.join(" ");
-      }
+      if (details.length > 0) message = details.join(" ");
     }
   }
   return message;
 }
 
-async function getJsonWithAuth<T>(
+async function request<T>(
   path: string,
-  token: string,
-  signal?: AbortSignal,
+  { method = "GET", body, token, signal, headers: extraHeaders }: RequestOptions = {},
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    signal,
-    headers: { Accept: "application/json", ...authHeaders(token) },
-  });
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  Object.assign(headers, extraHeaders);
 
-  if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      signal,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    // Giữ nguyên AbortError để caller tự bỏ qua
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+      throw new ApiError(
+      "Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.",
+      0,
+    );
   }
 
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+
+    // 401 khi ĐÃ gửi token => phiên hết hạn.
+    // (401 của /auth/login không có token => là sai mật khẩu, không đi vào đây)
+    if (response.status === 401 && token) {
+    handleSessionExpired();
+    throw new ApiError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
-async function postJson<T>(
-  path: string,
-  body: unknown,
+/* ---------------------------- Catalog ---------------------------- */
+
+export function getCategories(signal?: AbortSignal) {
+  return request<Category[]>("/categories", { signal });
+}
+
+export function getProducts(
+  filters?: { search?: string; category?: string; outOfStock?: boolean },
   signal?: AbortSignal,
+) {
+  const searchParams = new URLSearchParams();
+  if (filters?.search) searchParams.set("search", filters.search);
+  if (filters?.category && filters.category !== "all") {
+    searchParams.set("category", filters.category);
+  }
+  if (typeof filters?.outOfStock === "boolean") {
+    searchParams.set("outOfStock", String(filters.outOfStock));
+  }
+
+  const query = searchParams.toString();
+  return request<Product[]>(`/products${query ? `?${query}` : ""}`, { signal });
+}
+
+/* ------------------------ Promotions / Cart ------------------------ */
+
+export function getPromotions(token: string, signal?: AbortSignal) {
+  return request<Promotion[]>("/promotions/me", { token, signal });
+}
+
+export function validatePromotion(
+  code: string,
+  items: CartValidationInputItem[],
   token?: string,
-  headers: Record<string, string> = {},
-): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+) {
+  return request<PromotionValidation>("/promotions/validate", {
     method: "POST",
-    signal,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...authHeaders(token),
-      ...headers,
-    },
-    body: JSON.stringify(body),
+    body: { code, items },
+    token,
   });
-
-  if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-export function getPromotions(signal: AbortSignal) {
-  return fetchJson<Promotion[]>("/promotions/me", { signal });
-}
-
-export function validatePromotion(code: string, items: CartValidationInputItem[]) {
-  return postJson<PromotionValidation>("/promotions/validate", { code, items });
 }
 
 export function validateCart(items: CartValidationInputItem[]) {
-  return postJson<CartValidationResult>("/cart/validate", { items });
+  return request<CartValidationResult>("/cart/validate", {
+    method: "POST",
+    body: { items },
+  });
 }
 
 export function submitPayment(
   payload: PaymentRequest,
   token: string,
   idempotencyKey: string,
-  signal?: AbortSignal
-): Promise<PaymentResponse> {
-  return postJson<PaymentResponse>(
-    "/payments",
-    {
+  signal?: AbortSignal,
+) {
+  return request<PaymentResponse>("/payments", {
+    method: "POST",
+    token,
+    signal,
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: {
       orderId: payload.orderId,
       method: payload.method === "E_WALLET" ? "WALLET" : payload.method,
       idempotencyKey,
       ...(payload.cardNumber && { cardNumber: payload.cardNumber }),
     },
-    signal,
-    token,
-    { "Idempotency-Key": idempotencyKey },
-  );
+  });
 }
 
 export function confirmQrPayment(paymentId: string, token: string) {
-  return postJson<PaymentResponse>(`/payments/${paymentId}/confirm`, {}, undefined, token);
+  return request<PaymentResponse>(`/payments/${paymentId}/confirm`, {
+    method: "POST",
+    body: {},
+    token,
+  });
 }
 
 export function register(data: RegisterRequest, signal?: AbortSignal) {
-  return postJson<User>("/auth/register", data, signal);
+  return request<User>("/auth/register", { method: "POST", body: data, signal });
 }
 
 export function login(data: LoginRequest, signal?: AbortSignal) {
-  return postJson<LoginResponse>("/auth/login", data, signal);
+  return request<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: data,
+    signal,
+  });
+}
+
+export function getMe(token: string, signal?: AbortSignal) {
+  return request<User>("/auth/me", { token, signal });
 }
 
 export function requestPasswordReset(email: string, signal?: AbortSignal) {
-  return postJson<{ message: string }>(
-    "/auth/forgot-password",
-    { email },
+  return request<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: { email },
     signal,
-  );
+  });
 }
 
 export function resetPassword(
@@ -204,58 +231,58 @@ export function resetPassword(
   password: string,
   signal?: AbortSignal,
 ) {
-  return postJson<{ message: string }>(
-    "/auth/reset-password",
-    { token, password },
-    signal,
-  );
-}
-
-export async function getMe(
-  token: string,
-  signal?: AbortSignal,
-): Promise<User> {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
+  return request<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: { token, password },
     signal,
   });
-
-  if (!response.ok) {
-    throw new ApiError(
-      response.status === 401
-        ? "Your session has expired."
-        : "Unable to load your account.",
-      response.status,
-    );
-  }
-
-  return response.json() as Promise<User>;
 }
 
+/* ----------------------------- Orders ----------------------------- */
+
 export function createOrder(data: CreateOrderRequest, token: string) {
-  return postJson<Order>("/orders", data, undefined, token);
+  return request<Order>("/orders", { method: "POST", body: data, token });
 }
 
 export function getMyOrders(token: string, signal?: AbortSignal) {
-  return getJsonWithAuth<Order[]>("/orders/me", token, signal);
+  return request<Order[]>("/orders/me", { token, signal });
 }
 
 export function getOrder(id: string, token: string, signal?: AbortSignal) {
-  return getJsonWithAuth<Order>(`/orders/${id}`, token, signal);
+  return request<Order>(`/orders/${id}`, { token, signal });
 }
 
 export function cancelOrder(id: string, token: string) {
-  return postJson<{ message: string; orderId: string }>(
+  return request<{ message: string; orderId: string }>(
     `/orders/${id}/cancel`,
-    {},
-    undefined,
-    token,
+    { method: "POST", body: {}, token },
   );
 }
 
 export function getPayment(id: string, token: string, signal?: AbortSignal) {
-  return getJsonWithAuth<PaymentDetails>(`/payments/${id}`, token, signal);
+  return request<PaymentDetails>(`/payments/${id}`, { token, signal });
+}
+export async function fetchJson<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    const message = errorBody?.message || `API request failed with status ${response.status}`;
+    throw new ApiError(message, response.status);
+  }
+
+  if (response.status === 204) return undefined as unknown as T;
+  return (await response.json()) as T;
 }

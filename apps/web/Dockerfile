@@ -15,7 +15,7 @@ COPY apps/web/package.json ./apps/web/
 
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter web build
+RUN pnpm --filter @brewlite/web build
 
 # Phase 3: Runner
 FROM base AS runner
@@ -25,4 +25,7 @@ ENV NODE_ENV=production
 COPY --from=builder /app /app
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "web", "start"]
+
+# Chuyển vào đúng thư mục web và chạy start bằng pnpm
+WORKDIR /app/apps/web
+CMD ["pnpm", "start"]

@@ -10,7 +10,7 @@ import { PasswordResetService } from './password-reset.service';
 
 interface AuthenticatedRequest {
   user: {
-    id: string;
+    userId: string;
   };
 }
 
@@ -44,6 +44,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Req() request: AuthenticatedRequest) {
-    return this.authService.me(request.user.id);
+    return this.authService.me(request.user.userId);
   }
 }

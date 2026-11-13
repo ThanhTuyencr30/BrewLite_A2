@@ -1,6 +1,9 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+publicHoistPattern:
+  - '*pg*'
+  - '@prisma*'
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/engines': true

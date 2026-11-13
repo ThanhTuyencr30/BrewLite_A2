@@ -6,6 +6,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 FROM base AS builder
 WORKDIR /app
 
+# Biến môi trường giả lập chỉ dùng để generate prisma trong quá trình build
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/brewlite_db"
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -13,8 +14,8 @@ COPY apps/api/package.json ./apps/api/
 
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter api exec prisma generate
-RUN pnpm --filter api build
+RUN pnpm --filter @brewlite/api exec prisma generate
+RUN pnpm --filter @brewlite/api build
 
 # Phase 3: Runner
 FROM base AS runner
