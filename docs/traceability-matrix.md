@@ -1,0 +1,21 @@
+# BrewLite Cart and Promotion Traceability
+
+This matrix maps the existing requirements to the implemented UI/API and automated checks. Cart contents are persisted in browser local storage; authoritative price and stock checks run through the API before checkout.
+
+| Requirement | User story | Use case | UML | Implementation | Verification |
+|---|---|---|---|---|---|
+| FR-01 Display menu | US-01 View menu (SRS) | UC-01 View drink menu (SRS) | System overview | `GET /api/products`; `apps/api/src/products/products.service.ts`; `apps/web/src/components/menu/menu-page.tsx` | `apps/api/src/products/products.service.spec.ts`; `apps/api/src/products/products.integration.spec.ts` |
+| FR-02 Product summary and availability | US-01 View menu (SRS) | UC-01 View drink menu (SRS) | System overview | `GET /api/products`; `apps/web/src/components/menu/product-card.tsx` | `apps/api/src/products/products.service.spec.ts`; `apps/api/src/products/products.integration.spec.ts` |
+| FR-03 Filter by category and search keyword | US-01 View menu (SRS) | UC-01 View drink menu (SRS) | System overview | `GET /api/categories`, `GET /api/products?search=&category=`; `apps/web/src/components/menu/menu-page.tsx` | `apps/api/src/categories/categories.service.spec.ts`; `apps/api/src/products/products.integration.spec.ts` |
+| FR-04 Restrict ordering to available in-stock products | US-01 View menu (SRS) | UC-01 View drink menu (SRS) | System overview | `isOutOfStock` & `outOfStock` filter in `apps/api/src/products/products.service.ts`; disabled CTA in `apps/web/src/components/menu/product-card.tsx` | `apps/api/src/products/products.service.spec.ts`; `apps/api/src/products/products.integration.spec.ts` |
+| FR-10 Add product to cart | US-03 Manage cart (SRS) | Cart behavior described by UC-07–UC-09 (SRS) | Checkout activity flow | `apps/web/src/components/cart/cart-provider.tsx` | Cart UI behavior; cart API validation specs |
+| FR-11 Update cart quantity, size, and toppings | US-03 Manage cart (SRS) | UC-07–UC-09 (SRS) | Checkout activity flow | `apps/web/src/components/cart/cart-provider.tsx`, `apps/web/src/components/cart/cart-page.tsx` | Cart UI behavior; `apps/api/src/cart/cart.service.spec.ts` |
+| FR-12 Remove cart item | US-03 Manage cart (SRS) | UC-07–UC-09 (SRS) | Checkout activity flow | `apps/web/src/components/cart/cart-page.tsx` (confirmation modal) | Cart UI behavior |
+| FR-13 Recalculate total | US-03 Manage cart (SRS) | UC-07–UC-09 (SRS) | Checkout activity flow | `apps/web/src/components/cart/cart-page.tsx` | Cart UI behavior; cart service subtotal assertions |
+| FR-14 Check availability, stock, and price before order | US-03 Manage cart (SRS) | UC-17 Check inventory; UC-15 Create order | `docs/diagrams/activity-checkout.puml`, `docs/diagrams/use-case-checkout.puml`, `docs/diagrams/sequence-checkout.puml` | `POST /api/cart/validate`; `apps/api/src/cart/cart.service.ts`; checkout in `apps/web/src/components/cart/cart-page.tsx` | `apps/api/src/cart/cart.service.spec.ts`; `apps/api/src/cart/cart.integration.spec.ts` |
+| FR-33 Apply valid promotion subject to expiry, usage, and minimum order | Promotion acceptance criteria AC-07.1–AC-07.2 (SRS) | UC-16 Apply promotion | `docs/diagrams/activity-checkout.puml`, `docs/diagrams/use-case-checkout.puml` | `POST /api/promotions/validate`; `apps/api/src/promotions/promotions.service.ts`; `apps/web/src/components/cart/promotion-page.tsx`; seeds in `apps/api/prisma/seed.ts` | `apps/api/src/promotions/promotions.service.spec.ts`; `apps/api/src/cart/cart.integration.spec.ts` |
+| One promotion per validation request | Promotion brief: only one promo code per order | UC-16 Apply promotion | Checkout activity flow | `ValidatePromotionDto.code` is a single string; global `ValidationPipe` rejects arrays | `apps/api/src/cart/cart.integration.spec.ts` |
+
+## Verification scope
+
+The integration spec exercises the real Nest controllers, validation pipe, DTOs, and services over HTTP. Prisma is replaced with an in-memory mock, so these checks do not require a running PostgreSQL or Docker Engine. Seeded examples are `GIAM15` (15% off orders from 50,000 VND), `GIAM20K` (20,000 VND off orders from 80,000 VND), and the expired `GIAM10K` example.

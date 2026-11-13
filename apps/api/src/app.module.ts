@@ -13,6 +13,8 @@ import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaService } from './prisma.service'; 
+import { PaymentModule } from './payment/payment.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -25,7 +27,8 @@ import { PrismaService } from './prisma.service';
     PromotionsModule,
     PaymentsModule,
     UsersModule,
-    AuthModule
+    AuthModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

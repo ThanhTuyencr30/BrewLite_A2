@@ -1,0 +1,58 @@
+name: CI Pipeline & Quality Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, "feature/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Install, Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/brewlite_db?schema=public
+      JWT_SECRET: ci-quality-gate-placeholder-secret-32chars
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack & setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Activate pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @brewlite/api run prisma:generate
+
+      - name: Lint API
+        run: pnpm --filter @brewlite/api run lint
+
+      - name: Lint Web
+        run: pnpm --filter @brewlite/web run lint
+
+      - name: Run API Unit Tests
+        run: pnpm --filter @brewlite/api run test
+
+      - name: Run API Integration Tests
+        run: pnpm --filter @brewlite/api run test:e2e
+
+      - name: Build API
+        run: pnpm --filter @brewlite/api run build
+
+      - name: Build Web
+        run: pnpm --filter @brewlite/web run build
+

@@ -4,6 +4,19 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|s)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": {
+          "module": "esnext",
+          "target": "es2022"
+        }
+      }
+    ]
+  },
+  "moduleNameMapper": {
+    "^(\\./.*)\\.js$": "$1",
+    "^@nestjs/common$": "<rootDir>/../../node_modules/@nestjs/common"
   }
 }

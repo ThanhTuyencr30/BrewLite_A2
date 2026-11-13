@@ -52,6 +52,7 @@ export class PaymentsService {
     userId: string,
     dto: CreatePaymentDto,
     ipAddress = '127.0.0.1',
+    idempotencyKey = dto.idempotencyKey,
   ): Promise<PaymentResult> {
     // 1. Kiểm tra đơn hàng tồn tại và thuộc về người dùng hiện tại.
     const order = await this.prisma.order.findUnique({
@@ -62,11 +63,12 @@ export class PaymentsService {
       throw new NotFoundException('Order not found.');
     }
 
-    // 2. Kiểm tra khóa Idempotency đã được sử dụng chưa.
+
     const existing = await this.prisma.payment.findUnique({
-      where: { idempotencyKey: dto.idempotencyKey },
+      where: { idempotencyKey },
     });
 
+    let payment: Payment;
     if (existing) {
       // Cùng khóa nhưng khác yêu cầu: không cho tái sử dụng khóa.
       if (existing.orderId !== dto.orderId || existing.method !== dto.method) {
@@ -75,56 +77,99 @@ export class PaymentsService {
         );
       }
 
-      // Cùng yêu cầu: trả lại bản ghi cũ, không tạo thanh toán mới.
-      return this.withPaymentUrl(this.toResult(existing), order.code, ipAddress);
-    }
-
-    // 3. Chỉ nhận thanh toán cho đơn đang chờ thanh toán.
-    if (!PAYABLE_ORDER_STATUSES.includes(order.status)) {
-      throw new ConflictException('Order is not awaiting payment.');
-    }
-
-    // 4. Tạo bản ghi thanh toán ở trạng thái PENDING.
-    let payment: Payment;
-    try {
-      payment = await this.prisma.payment.create({
-        data: {
-          orderId: order.id,
-          idempotencyKey: dto.idempotencyKey,
-          method: dto.method,
-          amount: order.total,
-          status: PaymentStatus.PENDING,
-        },
-      });
-    } catch (error: unknown) {
-      // Hai request đồng thời có thể cùng kiểm tra khóa trước khi
-      // một request kịp tạo bản ghi. Ràng buộc UNIQUE xử lý trường hợp này.
-      const isUniqueError =
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2002';
-
-      if (isUniqueError) {
-        const concurrent = await this.prisma.payment.findUnique({
-          where: { idempotencyKey: dto.idempotencyKey },
+      if (
+        existing.status === PaymentStatus.FAILED &&
+        order.status === OrderStatus.PAYMENT_FAILED
+      ) {
+        const retryAt = new Date();
+        const reset = await this.prisma.payment.updateMany({
+          where: { id: existing.id, status: PaymentStatus.FAILED },
+          data: {
+            status: PaymentStatus.PENDING,
+            failureReason: null,
+            createdAt: retryAt,
+          },
         });
 
-        if (concurrent) {
-          if (
-            concurrent.orderId !== dto.orderId ||
-            concurrent.method !== dto.method
-          ) {
-            throw new ConflictException(
-              'Idempotency key has already been used for another request.',
-            );
+        if (reset.count === 0) {
+          const concurrent = await this.prisma.payment.findUnique({
+            where: { idempotencyKey },
+          });
+          if (!concurrent) {
+            throw new ConflictException('Payment retry could not be started.');
           }
-
-          return this.withPaymentUrl(this.toResult(concurrent), order.code, ipAddress);
+          return this.withPaymentUrl(
+            this.toResult(concurrent),
+            order.code,
+            ipAddress,
+          );
         }
+
+        payment = {
+          ...existing,
+          status: PaymentStatus.PENDING,
+          failureReason: null,
+          createdAt: retryAt,
+        };
+      } else {
+        // Cùng yêu cầu đang chạy hoặc đã hoàn tất: trả lại bản ghi cũ.
+        return this.withPaymentUrl(
+          this.toResult(existing),
+          order.code,
+          ipAddress,
+        );
+      }
+    } else {
+      // 3. Chỉ nhận thanh toán cho đơn đang chờ thanh toán.
+      if (!PAYABLE_ORDER_STATUSES.includes(order.status)) {
+        throw new ConflictException('Order is not awaiting payment.');
       }
 
-      throw error;
+      // 4. Tạo bản ghi thanh toán ở trạng thái PENDING.
+      try {
+        payment = await this.prisma.payment.create({
+          data: {
+            orderId: order.id,
+            idempotencyKey,
+            method: dto.method,
+            amount: order.total,
+            status: PaymentStatus.PENDING,
+          },
+        });
+      } catch (error: unknown) {
+        // Hai request đồng thời có thể cùng kiểm tra khóa trước khi
+        // một request kịp tạo bản ghi. Ràng buộc UNIQUE xử lý trường hợp này.
+        const isUniqueError =
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'P2002';
+
+        if (isUniqueError) {
+          const concurrent = await this.prisma.payment.findUnique({
+            where: { idempotencyKey },
+          });
+
+          if (concurrent) {
+            if (
+              concurrent.orderId !== dto.orderId ||
+              concurrent.method !== dto.method
+            ) {
+              throw new ConflictException(
+                'Idempotency key has already been used for another request.',
+              );
+            }
+
+            return this.withPaymentUrl(
+              this.toResult(concurrent),
+              order.code,
+              ipAddress,
+            );
+          }
+        }
+
+        throw error;
+      }
     }
 
     // 5a. VNPay: chuyển khách sang cổng VNPay, kết quả do VNPay xác nhận.

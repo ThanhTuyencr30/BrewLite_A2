@@ -1,0 +1,205 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+title BrewLite – Sơ đồ Cơ sở Dữ liệu (Entity-Relationship Diagram - ERD)
+
+' =========================
+' DATABASE TABLES (ENTITIES)
+' =========================
+entity "User" as User {
+    * id : String <<PK>> (UUID)
+    --
+    * email : String <<UNIQUE>>
+    * passwordHash : String
+    fullName : String
+    phone : String <<UNIQUE>>
+    * loyaltyPoints : Int
+}
+
+entity "PasswordResetToken" as PasswordResetToken {
+    * id : String <<PK>> (UUID)
+    --
+    * userId : String <<FK, UNIQUE>>
+    * tokenHash : String <<UNIQUE>>
+    * expiresAt : DateTime
+    * createdAt : DateTime
+}
+
+entity "Promotion" as Promotion {
+    * id : Int <<PK>>
+    --
+    * code : String <<UNIQUE>>
+    * discountType : String (PERCENT | FIXED_AMOUNT)
+    * value : Int (VND)
+    * minOrderValue : Int
+    maxDiscount : Int
+    * startsAt : DateTime
+    * endsAt : DateTime
+    usageLimit : Int
+    * usedCount : Int
+}
+
+entity "UserPromotion" as UserPromotion {
+    * userId : String <<PK, FK>>
+    * promotionId : Int <<PK, FK>>
+    --
+    * claimedAt : DateTime
+    usedAt : DateTime
+}
+
+entity "Category" as Category {
+    * id : Int <<PK>>
+    --
+    * name : String <<UNIQUE>>
+    * slug : String <<UNIQUE>>
+    * sortOrder : Int
+    * isActive : Boolean
+}
+
+entity "Product" as Product {
+    * id : Int <<PK>>
+    --
+    * categoryId : Int <<FK>>
+    * name : String
+    * slug : String
+    description : String
+    * basePrice : Int (VND)
+    * stock : Int
+    * version : Int
+    * isAvailable : Boolean
+    * imageUrl : String
+}
+
+entity "ProductSize" as ProductSize {
+    * id : Int <<PK>>
+    --
+    * productId : Int <<FK>>
+    * size : String (S | M | L)
+    * additionalPrice : Int
+}
+
+entity "Ingredient" as Ingredient {
+    * id : Int <<PK>>
+    --
+    * name : String <<UNIQUE>>
+    * unit : String
+    * stock : Int
+}
+
+entity "ProductIngredient" as ProductIngredient {
+    * productId : Int <<PK, FK>>
+    * size : String <<PK>> (S | M | L)
+    * ingredientId : Int <<PK, FK>>
+    --
+    * quantity : Int
+}
+
+entity "Topping" as Topping {
+    * id : Int <<PK>>
+    --
+    * name : String
+    * slug : String
+    * price : Int
+    * stock : Int
+    * version : Int
+    * isAvailable : Boolean
+}
+
+entity "ProductTopping" as ProductTopping {
+    * productId : Int <<PK, FK>>
+    * toppingId : Int <<PK, FK>>
+}
+
+entity "Order" as Order {
+    * id : String <<PK>> (UUID)
+    --
+    * code : String <<UNIQUE>>
+    * userId : String <<FK>>
+    promotionId : Int <<FK>>
+    * status : String (PENDING | PAID | ...)
+    * subtotal : Int
+    * discount : Int
+    * total : Int
+    expiresAt : DateTime
+    * version : Int
+    cancelledAt : DateTime
+    cancelReason : String
+    * createdAt : DateTime
+    * updatedAt : DateTime
+}
+
+entity "OrderItem" as OrderItem {
+    * id : Int <<PK>>
+    --
+    * orderId : String <<FK>> (UUID)
+    * productId : Int <<FK>>
+    * productName : String
+    * size : String (S | M | L)
+    * iceLevel : String (NONE | LESS | ...)
+    * quantity : Int
+    * unitPrice : Int
+    * lineTotal : Int
+}
+
+entity "OrderItemTopping" as OrderItemTopping {
+    * orderItemId : Int <<PK, FK>>
+    * toppingId : Int <<PK, FK>>
+    --
+    * toppingName : String
+    * unitPrice : Int
+}
+
+entity "OrderStatusHistory" as OrderStatusHistory {
+    * id : Int <<PK>>
+    --
+    * orderId : String <<FK>> (UUID)
+    fromStatus : String
+    * toStatus : String
+    note : String
+    * changedAt : DateTime
+}
+
+entity "Payment" as Payment {
+    * id : String <<PK>> (UUID)
+    --
+    * orderId : String <<FK, UNIQUE>> (UUID)
+    * idempotencyKey : String <<UNIQUE>>
+    * method : String (WALLET | CARD | QR | VNPAY)
+    * status : String (PENDING | SUCCEEDED | ...)
+    * amount : Int (VND)
+    providerTransactionId : String
+    failureReason : String
+    * createdAt : DateTime
+    * updatedAt : DateTime
+}
+
+' =========================
+' RELATIONSHIPS (FOREIGN KEYS)
+' =========================
+User ||--o| PasswordResetToken : "1 - 0..1"
+User ||--o{ Order : "1 - 0..*"
+User ||--o{ UserPromotion : "1 - 0..*"
+
+Promotion ||--o{ UserPromotion : "1 - 0..*"
+Promotion ||--o{ Order : "0..1 - 0..*"
+
+Category ||--o{ Product : "1 - 0..*"
+Product ||--o{ ProductSize : "1 - 0..*"
+Product ||--o{ ProductIngredient : "1 - 0..*"
+Ingredient ||--o{ ProductIngredient : "1 - 0..*"
+
+Product ||--o{ ProductTopping : "1 - 0..*"
+Topping ||--o{ ProductTopping : "1 - 0..*"
+
+Order ||--|{ OrderItem : "1 - 1..*"
+Product ||--o{ OrderItem : "1 - 0..*"
+
+OrderItem ||--o{ OrderItemTopping : "1 - 0..*"
+Topping ||--o{ OrderItemTopping : "1 - 0..*"
+
+Order ||--o{ OrderStatusHistory : "1 - 0..*"
+Order ||--o| Payment : "1 - 0..1"
+
+@enduml

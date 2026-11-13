@@ -70,13 +70,14 @@ export class PromotionsService {
       where: { code: input.code.trim().toUpperCase() },
     });
 
-    if (
-      !promotion ||
-      !promotion.isActive ||
-      promotion.startsAt > now ||
-      promotion.endsAt <= now
-    ) {
-      throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+    if (!promotion || !promotion.isActive) {
+      throw new BadRequestException('Promotion code is invalid or inactive.');
+    }
+    if (promotion.startsAt > now) {
+      throw new BadRequestException('Promotion code is not active yet.');
+    }
+    if (promotion.endsAt <= now) {
+      throw new BadRequestException('Promotion code has expired.');
     }
 
     const cart = await this.cartService.validateCart({ items: input.items });

@@ -6,11 +6,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Thêm Prefix /api cho toàn bộ endpoint
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: ['health'] });
 
   // Cấu hình CORS
   app.enableCors({
-    origin: true,
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],

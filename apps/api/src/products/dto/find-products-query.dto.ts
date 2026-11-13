@@ -1,4 +1,4 @@
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 export class FindProductsQueryDto {
   @IsOptional()
@@ -12,4 +12,10 @@ export class FindProductsQueryDto {
     message: 'category must be a lowercase slug',
   })
   category?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'], {
+    message: 'outOfStock must be true or false',
+  })
+  outOfStock?: 'true' | 'false';
 }

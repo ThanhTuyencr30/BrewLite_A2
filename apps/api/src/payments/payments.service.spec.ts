@@ -253,6 +253,47 @@ describe('PaymentsService', () => {
       });
     });
 
+    it('resets the failed payment when retrying the same idempotency key', async () => {
+      const failedOrder = { ...userIdOrder, status: 'PAYMENT_FAILED' };
+      const failedPayment = {
+        ...payment,
+        method: 'CARD',
+        status: 'FAILED',
+        failureReason: 'Thẻ bị ngân hàng từ chối.',
+      };
+      prisma.order.findUnique.mockResolvedValue(failedOrder);
+      prisma.payment.findUnique.mockResolvedValue(failedPayment);
+      prisma.payment.updateMany.mockResolvedValue({ count: 1 });
+      tx.payment.findUniqueOrThrow
+        .mockResolvedValueOnce({
+          ...failedPayment,
+          status: 'PENDING',
+          order: failedOrder,
+        })
+        .mockResolvedValueOnce({
+          ...failedPayment,
+          status: 'SUCCEEDED',
+          failureReason: null,
+        });
+
+      const result = await service.create(userId, {
+        ...dto,
+        method: 'CARD',
+        cardNumber: '4111111111111111',
+      });
+
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: failedPayment.id, status: 'FAILED' },
+        data: expect.objectContaining({
+          status: 'PENDING',
+          failureReason: null,
+          createdAt: expect.any(Date),
+        }),
+      });
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+      expect(result.status).toBe('SUCCEEDED');
+    });
+
     it('keeps QR payments pending with a 15 minute expiry', async () => {
       const result = await service.create(userId, dto);
 

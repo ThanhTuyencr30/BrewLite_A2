@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreenState, PaymentMethod, PaymentResponse } from "@/lib/api.types";
 import { ApiError, confirmQrPayment, getMe, submitPayment } from "@/lib/api";
@@ -36,6 +36,19 @@ export default function PaymentFlow({ orderId, orderCode, amount }: PaymentFlowP
   const [totalPoints, setTotalPoints] = useState<number>();
   const [qrPayment, setQrPayment] = useState<PaymentResponse | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const idempotencyKeys = useRef(new Map<PaymentMethod, string>());
+
+  const getIdempotencyKey = (
+    selectedMethod: PaymentMethod,
+    newAttempt = false,
+  ) => {
+    let key = idempotencyKeys.current.get(selectedMethod);
+    if (!key || newAttempt) {
+      key = crypto.randomUUID();
+      idempotencyKeys.current.set(selectedMethod, key);
+    }
+    return key;
+  };
 
   const redirectToLogin = () =>
     router.push(
@@ -101,11 +114,19 @@ export default function PaymentFlow({ orderId, orderCode, amount }: PaymentFlowP
     }
   };
 
-  const handleProcessPayment = (selectedMethod: PaymentMethod, cardNumber?: string) => {
+  const handleProcessPayment = (
+    selectedMethod: PaymentMethod,
+    cardNumber?: string,
+    newAttempt = false,
+  ) => {
     // Mã QR hiện ngay trên màn QR, không cần màn "Đang xử lý".
     if (selectedMethod !== "QR") setScreen("PROCESSING");
     return runPayment((token) =>
-      submitPayment({ orderId, method: selectedMethod, cardNumber }, token),
+      submitPayment(
+        { orderId, method: selectedMethod, cardNumber },
+        token,
+        getIdempotencyKey(selectedMethod, newAttempt),
+      ),
     );
   };
 
@@ -184,7 +205,7 @@ export default function PaymentFlow({ orderId, orderCode, amount }: PaymentFlowP
             onBack={() => setScreen("SELECT_METHOD")}
             onCancel={goToOrder}
             onConfirm={() => void handleConfirmQr()}
-            onRegenerate={() => void handleProcessPayment("QR")}
+            onRegenerate={() => void handleProcessPayment("QR", undefined, true)}
           />
         </div>
       )}

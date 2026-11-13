@@ -40,8 +40,7 @@ export default function ProfilePage() {
     }
 
     const controller = new AbortController();
-    setPromotionState("loading");
-    setPromotionError("");
+  
     void getPromotions(token, controller.signal)
       .then((result) => {
         setPromotions(result);
@@ -62,7 +61,7 @@ export default function ProfilePage() {
     return () => controller.abort();
   }, [dialog, promotionRetry, router]);
 
-  useEffect(() => {
+  useEffect (() => {
     if (dialog !== "promotions") {
       return;
     }
@@ -222,7 +221,11 @@ export default function ProfilePage() {
           </button>
           <button
             className={styles.accountAction}
-            onClick={() => setDialog("promotions")}
+            onClick={() => {
+              setPromotionState("loading");
+              setPromotionError("");
+              setDialog("promotions");
+            }}
             type="button"
           >
             <span className={styles.actionIcon} aria-hidden="true">◇</span>
@@ -301,7 +304,11 @@ export default function ProfilePage() {
                   </p>
                   <button
                     className={styles.promotionRetry}
-                    onClick={() => setPromotionRetry((retry) => retry + 1)}
+                    onClick={() => {
+                      setPromotionState("loading");
+                      setPromotionError("");
+                      setPromotionRetry((retry) => retry + 1);
+                    }}
                     type="button"
                   >
                     Thử lại

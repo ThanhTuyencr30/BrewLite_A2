@@ -193,11 +193,11 @@ async function main() {
       endsAt: new Date('2026-12-31T23:59:59.999Z'),
     },
     {
-      code: 'GIAM20',
-      description: 'Giảm 20.000đ cho đơn từ 120.000đ',
+      code: 'GIAM20K',
+      description: 'Discount 20,000 VND on orders from 80,000 VND',
       discountType: 'FIXED_AMOUNT' as const,
       value: 20000,
-      minOrderValue: 120000,
+      minOrderValue: 80000,
       maxDiscount: null,
       startsAt: new Date('2026-01-01T00:00:00.000Z'),
       endsAt: new Date('2026-12-31T23:59:59.999Z'),
@@ -330,6 +330,11 @@ async function main() {
       prisma.productIngredient.createMany({ data: recipeRows }),
     ]);
   }
+
+  await prisma.promotion.updateMany({
+    where: { code: 'GIAM20' },
+    data: { isActive: false },
+  });
 
   for (const promotion of promotions) {
     await prisma.promotion.upsert({
