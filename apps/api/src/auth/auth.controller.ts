@@ -7,7 +7,7 @@ import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PasswordResetService } from './password-reset.service';
-
+import { HttpCode,HttpStatus } from '@nestjs/common';
 interface AuthenticatedRequest {
   user: {
     id: string;
@@ -27,8 +27,9 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  return this.authService.login(loginDto);
   }
 
   @Post('forgot-password')
@@ -43,7 +44,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@Req() request: AuthenticatedRequest) {
-    return this.authService.me(request.user.id);
-  }
+  me(@Req() request: any) {
+  console.log('request.user =', request.user);
+  return this.authService.me(request.user.id);
+}
 }

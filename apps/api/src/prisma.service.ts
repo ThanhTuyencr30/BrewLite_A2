@@ -1,10 +1,26 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-// Trỏ đường dẫn tương đối chính xác đến thư mục sinh mã của Prisma trong project
-const { PrismaClient } = require('../src/generated/prisma/client'); // Hoặc '../node_modules/.pnpm/@prisma/client' tùy theo cấu trúc nhóm bạn đang gen ra đâu
+const { PrismaClient } = require('./generated/prisma/client');
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit
+{
+  constructor() {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+
+    const adapter = new PrismaPg(pool);
+
+    super({
+      adapter,
+    });
+  }
+
   async onModuleInit() {
     await this.$connect();
   }

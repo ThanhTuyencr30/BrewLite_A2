@@ -85,4 +85,5 @@ async me(userId: string) {
     loyaltyPoints: user.loyaltyPoints,
   };
 }
+  
 }

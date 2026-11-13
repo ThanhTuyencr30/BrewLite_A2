@@ -11,10 +11,9 @@ function safeNextPath(value: string | undefined) {
 export default async function SessionExpiredPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: { next?: string };
 }) {
-  const { next } = await searchParams;
-  const nextPath = safeNextPath(next);
+  const nextPath = safeNextPath(searchParams.next);
 
   return (
     <main className={styles.authPage}>

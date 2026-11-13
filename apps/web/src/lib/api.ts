@@ -17,7 +17,7 @@ import type {
 } from "./api.types";
 import {clearAccessToken} from "./auth-token";
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 /* ----------------------------- Errors ----------------------------- */
 

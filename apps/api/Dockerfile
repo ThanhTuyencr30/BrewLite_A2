@@ -17,14 +17,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Chỉ copy những file thực sự cần thiết để chạy production (giúp image nhẹ và sạch)
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/pnpm-lock.yaml ./
-COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app ./
 
 EXPOSE 3001
 
 # Sửa lại đường dẫn chuẩn của NestJS Monorepo sau khi build
-CMD ["node", "apps/api/dist/apps/api/src/main.js"]
+CMD ["node", "apps/api/dist/main.js"]
