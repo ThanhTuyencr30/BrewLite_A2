@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+export const MOCK_DECLINED_CARD = '4000000000000002';
+
 @Injectable()
 export class PaymentService {
   // Bộ nhớ tạm lưu các Idempotency-Key đã xử lý (Key -> Kết quả)
@@ -21,18 +23,24 @@ export class PaymentService {
       return this.processedTransactions.get(idempotencyKey);
     }
 
-    // 2. Nếu là request mới, tiến hành xử lý thanh toán
+    // 2. Nếu là request mới, tiến hành xử lý thanh toán tất định theo input
     return new Promise((resolve) => {
       setTimeout(() => {
-        const isSuccess = Math.random() > 0.2; // 80% thành công
-        const result = isSuccess
-          ? { success: true, message: 'Thanh toán thành công' }
-          : { success: false, message: 'Số dư không đủ' };
+        const shouldFail =
+          payload?.cardNumber === MOCK_DECLINED_CARD ||
+          payload?.simulateFailure === true;
+        const result = shouldFail
+          ? { success: false, message: 'Số dư không đủ' }
+          : {
+              success: true,
+              message: 'Thanh toán thành công',
+              transactionId: `MOCK_TXN_${idempotencyKey}`,
+            };
 
         // 3. LƯU LẠI KẾT QUẢ VÀO BỘ NHỚ để đối chiếu cho các request sau
         this.processedTransactions.set(idempotencyKey, result);
         resolve(result);
-      }, 500); // Giảm độ trễ xuống 500ms để chạy test cho nhanh
+      }, 150);
     });
   }
 }
