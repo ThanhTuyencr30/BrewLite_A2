@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCart } from "@/components/cart/cart-provider";
 import { ScreenState, PaymentMethod, PaymentResponse } from "@/lib/api.types";
 import { ApiError, confirmQrPayment, getMe, submitPayment } from "@/lib/api";
 import { clearAccessToken, getAccessToken, loginUrl } from "@/lib/auth-token";
@@ -28,6 +29,7 @@ export default function PaymentFlow({ orderId, orderCode, amount }: PaymentFlowP
   // Mã hiển thị cho khách (CC-xxxxxx); orderId chỉ dùng để gọi API.
   const orderLabel = orderCode ?? orderId;
   const router = useRouter();
+  const { clearCart, setAppliedPromotion } = useCart();
   const [screen, setScreen] = useState<ScreenState>("SELECT_METHOD");
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [paidAmount, setPaidAmount] = useState(amount);
@@ -66,6 +68,8 @@ export default function PaymentFlow({ orderId, orderCode, amount }: PaymentFlowP
     }
 
     if (payment.status === "SUCCEEDED") {
+      clearCart();
+      setAppliedPromotion(null);
       setRewardPoints(payment.rewardPoints);
       setScreen("ORDER_SUCCESS");
       const token = getAccessToken();

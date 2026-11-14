@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCart } from "@/components/cart/cart-provider";
 import { ApiError, getMe, getPayment } from "@/lib/api";
 import type { PaymentDetails } from "@/lib/api.types";
 import { clearAccessToken, getAccessToken, loginUrl } from "@/lib/auth-token";
@@ -23,6 +24,7 @@ const METHOD_LABELS: Record<PaymentDetails["method"], string> = {
 // nơi đã kiểm tra chữ ký VNPay và cập nhật đơn hàng.
 export default function PaymentResult({ paymentId, hasError }: PaymentResultProps) {
   const router = useRouter();
+  const { clearCart, setAppliedPromotion } = useCart();
   const [payment, setPayment] = useState<PaymentDetails | null>(null);
   const [totalPoints, setTotalPoints] = useState<number>();
   const [loadError, setLoadError] = useState("");
@@ -44,6 +46,8 @@ export default function PaymentResult({ paymentId, hasError }: PaymentResultProp
         setPayment(result);
         setLoadError("");
         if (result.status === "SUCCEEDED") {
+          clearCart();
+          setAppliedPromotion(null);
           getMe(accessToken)
             .then((user) => setTotalPoints(user.loyaltyPoints))
             .catch(() => setTotalPoints(undefined));
@@ -61,7 +65,7 @@ export default function PaymentResult({ paymentId, hasError }: PaymentResultProp
 
     void load(token, paymentId);
     return () => controller.abort();
-  }, [paymentId, hasError, reloadCount, router]);
+  }, [paymentId, hasError, reloadCount, router, clearCart, setAppliedPromotion]);
 
   const shell = (children: React.ReactNode) => (
     <main className="max-w-md mx-auto h-screen bg-[#F5EBE1] text-[#4a3b32] font-sans overflow-y-auto">

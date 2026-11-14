@@ -35,6 +35,17 @@ export interface CartItem {
   unitPrice: number;
 }
 
+export function calculateCartSubtotal(items: CartItem[]) {
+  return items.reduce(
+    (sum, item) =>
+      sum +
+      (item.unitPrice +
+        item.toppings.reduce((toppingSum, topping) => toppingSum + topping.price, 0)) *
+        item.quantity,
+    0,
+  );
+}
+
 type AddCartItemInput = Omit<CartItem, "id" | "quantity" | "iceLevel" | "toppings"> & {
   quantity?: number;
   iceLevel?: CartIceLevel;

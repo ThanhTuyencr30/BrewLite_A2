@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useCart } from "@/components/cart/cart-provider";
+import {
+  calculateCartSubtotal,
+  useCart,
+} from "@/components/cart/cart-provider";
 import { formatCurrency } from "@/lib/format";
 import { ApiError, createOrder, validateCart, validatePromotion } from "@/lib/api";
 import { clearAccessToken, getAccessToken, loginUrl } from "@/lib/auth-token";
@@ -39,21 +42,11 @@ export function CartPage() {
         size: item.size,
         quantity: item.quantity,
         expectedUnitPrice: item.unitPrice,
+        toppingIds: item.toppings.map((topping) => topping.id),
       })),
     [items],
   );
-  const subtotal = useMemo(
-    () =>
-      items.reduce(
-        (sum, item) =>
-          sum +
-          (item.unitPrice +
-            item.toppings.reduce((toppingSum, topping) => toppingSum + topping.price, 0)) *
-            item.quantity,
-        0,
-      ),
-    [items],
-  );
+  const subtotal = useMemo(() => calculateCartSubtotal(items), [items]);
   const discount = appliedPromotion?.discount ?? 0;
   const total = Math.max(0, subtotal - discount);
   const appliedCode = appliedPromotion?.promotion.code;
@@ -112,8 +105,6 @@ export function CartPage() {
         },
         token,
       );
-      clearCart();
-      setAppliedPromotion(null);
       router.push(`/checkout/${order.id}`);
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {

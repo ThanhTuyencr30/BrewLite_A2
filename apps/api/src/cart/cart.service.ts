@@ -17,6 +17,12 @@ export class CartService {
         stock: true,
         isAvailable: true,
         sizes: { select: { size: true, additionalPrice: true } },
+        toppingLinks: {
+          select: {
+            toppingId: true,
+            topping: { select: { price: true } },
+          },
+        },
       },
     });
     const productsById = new Map(products.map((product) => [product.id, product]));
@@ -104,7 +110,14 @@ export class CartService {
         });
       }
 
-      subtotal += currentUnitPrice * item.quantity;
+      const toppingUnitPrice = (item.toppingIds ?? []).reduce(
+        (sum, toppingId) =>
+          sum +
+          (product.toppingLinks.find((link) => link.toppingId === toppingId)?.topping.price ??
+            0),
+        0,
+      );
+      subtotal += (currentUnitPrice + toppingUnitPrice) * item.quantity;
       return {
         productId: product.id,
         size: item.size,

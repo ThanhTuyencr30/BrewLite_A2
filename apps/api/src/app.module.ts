@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
+import { IngredientsModule } from './ingredients/ingredients.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PaymentModule } from './payment/payment.module';
     UsersModule,
     AuthModule,
     PaymentModule,
+    IngredientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

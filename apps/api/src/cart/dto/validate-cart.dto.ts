@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsOptional,
   Max,
   IsPositive,
   Min,
@@ -27,6 +28,12 @@ export class ValidateCartItemDto {
   @IsInt()
   @Min(0)
   expectedUnitPrice!: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @IsPositive({ each: true })
+  toppingIds?: number[];
 }
 
 export class ValidateCartDto {

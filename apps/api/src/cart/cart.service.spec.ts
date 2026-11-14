@@ -52,6 +52,37 @@ describe('CartService', () => {
     });
   });
 
+  it('includes selected topping prices in the validated subtotal', async () => {
+    findMany.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Americano',
+        basePrice: 32000,
+        stock: 5,
+        isAvailable: true,
+        sizes: [{ size: 'M', additionalPrice: 5000 }],
+        toppingLinks: [
+          { toppingId: 7, topping: { price: 6000 } },
+          { toppingId: 8, topping: { price: 4000 } },
+        ],
+      },
+    ]);
+
+    const result = await service.validateCart({
+      items: [
+        {
+          productId: 1,
+          size: 'M',
+          quantity: 2,
+          expectedUnitPrice: 37000,
+          toppingIds: [7],
+        },
+      ],
+    });
+
+    expect(result.subtotal).toBe(86000);
+  });
+
   it('reports price changes and aggregates quantities for stock checks', async () => {
     findMany.mockResolvedValue([
       {

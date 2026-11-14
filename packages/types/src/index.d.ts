@@ -73,6 +73,7 @@ export interface CartValidationInputItem {
   size: SizeCode;
   quantity: number;
   expectedUnitPrice: number;
+  toppingIds?: number[];
 }
 
 export interface CartValidationResult {

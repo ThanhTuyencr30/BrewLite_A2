@@ -32,6 +32,7 @@ services:
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:?VNPAY_HASH_SECRET is required}
       VNPAY_URL: ${VNPAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:3001/api/payments/vnpay/return}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY is required}
     ports:
       - "3001:3001"
     healthcheck:

@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useCart } from "@/components/cart/cart-provider";
+import {
+  calculateCartSubtotal,
+  useCart,
+} from "@/components/cart/cart-provider";
 import { formatCurrency } from "@/lib/format";
 import { getPromotions, validatePromotion } from "@/lib/api";
 import type { Promotion, PromotionValidation } from "@/lib/api.types";
@@ -32,11 +35,12 @@ export function PromotionPage() {
         size: item.size,
         quantity: item.quantity,
         expectedUnitPrice: item.unitPrice,
+        toppingIds: item.toppings.map((topping) => topping.id),
       })),
     [items],
   );
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+    () => calculateCartSubtotal(items),
     [items],
   );
   const previewDiscount =
