@@ -7,6 +7,9 @@ publicHoistPattern:
 allowBuilds:
   '@parcel/watcher': true
   '@prisma/engines': true
+  '@scarf/scarf': false
   bcrypt: true
   esbuild: true
   prisma: true
+minimumReleaseAgeExclude:
+  - '@nestjs/swagger@12.1.2'

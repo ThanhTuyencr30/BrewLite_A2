@@ -124,7 +124,7 @@ const designMenu: Array<{
     categorySlug: 'ca-phe',
     basePrice: 22000,
     sizePrices: { S: 22000, M: 28000, L: 36000 },
-    stock: 0,
+    stock: 3,
   },
   {
     name: 'Cappuccino',
