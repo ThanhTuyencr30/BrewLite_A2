@@ -3,6 +3,10 @@
   "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": ".*\\.(integration\\.spec|e2e-spec)\\.ts$",
+  "extensionsToTreatAsEsm": [".ts"],
+  "injectGlobals": true,
+  "setupFiles": ["<rootDir>/test/setup-jest.ts"],
+  "transformIgnorePatterns": [],
   "transform": {
     "^.+\\.(t|j)s$": [
       "ts-jest",
