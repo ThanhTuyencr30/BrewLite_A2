@@ -1,6 +1,7 @@
 name: CI Pipeline & Quality Gate
 
 on:
+  workflow_call:
   pull_request:
     branches: [main, develop]
   push:
@@ -55,6 +56,9 @@ jobs:
 
       - name: Apply database migrations
         run: pnpm --filter @brewlite/api run prisma:deploy
+
+      - name: Seed test catalog
+        run: pnpm --filter @brewlite/api run prisma:seed
 
       - name: Lint API
         run: pnpm --filter @brewlite/api run lint

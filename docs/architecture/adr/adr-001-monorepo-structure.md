@@ -14,7 +14,7 @@ Hệ thống BrewLite gồm hai thành phần chính:
 Nếu tách thành 2 Repository Git riêng biệt, nhóm sẽ gặp khó khăn trong việc đồng bộ các kiểu dữ liệu (Data Types, DTOs, Enums như `OrderStatus`, `PaymentMethod`), dẫn đến rủi ro sai lệch dữ liệu giữa Client và Server khi làm việc nhóm.
 
 ## 2. Quyết định (Decision)
-Nhóm quyết định áp dụng mô hình **Monorepo** (quản lý cả Client và Server trong cùng một Git Repository) sử dụng **pnpm Workspaces** và **Turborepo**.
+Nhóm quyết định áp dụng mô hình **Monorepo** (quản lý cả Client và Server trong cùng một Git Repository) sử dụng **pnpm Workspaces**. Không dùng Turborepo trong cấu hình hiện tại.
 
 Cấu trúc thư mục:
 ```text

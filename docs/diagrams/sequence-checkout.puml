@@ -6,59 +6,72 @@ actor "Khách hàng" as Customer #Pink
 participant "Giao diện Next.js" as NextJS #LightCyan
 participant "API NestJS" as NestJS #OldLace
 database "PostgreSQL" as Postgres #LightCyan
+participant "Payment Service\n(Mock / VNPay)" as PaymentService #Wheat
 
-Customer -> NextJS : Nhấn Đặt hàng
-activate NextJS
-
-NextJS -> NestJS : Kiểm tra giỏ hàng (giá hiện tại, tồn kho sản phẩm)
-activate NestJS
-
+Customer -> NextJS : Mở menu
+NextJS -> NestJS : GET /api/products
 NestJS -> Postgres : Đọc sản phẩm, giá và tồn kho
-activate Postgres
-Postgres --> NestJS : Dữ liệu sản phẩm
-deactivate Postgres
+Postgres --> NestJS : Danh sách sản phẩm
+NestJS --> NextJS : 200 + menu
+NextJS --> Customer : Hiển thị menu và chi tiết món
 
-NestJS --> NextJS : Kết quả kiểm tra giỏ
-deactivate NestJS
+Customer -> NextJS : Chọn món, size, topping và Đặt hàng
+NextJS -> NestJS : POST /api/cart/validate
+NestJS -> Postgres : Kiểm tra sản phẩm, giá và tồn kho
+Postgres --> NestJS : Kết quả kiểm tra
+NestJS --> NextJS : Kết quả giỏ hàng
 
-alt Giỏ có vấn đề (sai giá, hết hàng)
-    NextJS --> Customer : Báo lỗi và yêu cầu cập nhật giỏ hàng
+alt Chưa đăng nhập
+    NextJS --> Customer : Yêu cầu đăng nhập rồi quay lại checkout
+    Customer -> NextJS : Đăng nhập
+    NextJS -> NestJS : POST /api/auth/login
+    NestJS --> NextJS : JWT
+    NextJS --> Customer : Tiếp tục checkout
+else Giỏ không hợp lệ hoặc hết hàng
+    NextJS --> Customer : Báo lỗi và yêu cầu cập nhật giỏ
+end
 
-else Giỏ hợp lệ nhưng chưa đăng nhập
-    NextJS --> Customer : Chuyển tới đăng nhập (quay về /cart);\nbấm Đặt hàng lần nữa sau khi đăng nhập
-
-else Giỏ hợp lệ và đã đăng nhập
-    NextJS -> NestJS : POST /orders {items, discountCode?} kèm JWT
-    activate NestJS
-
-    NestJS -> NestJS : Xác thực JWT
-    NestJS -> Postgres : Bắt đầu transaction: kiểm tra lại sản phẩm, topping, mã giảm giá, nguyên liệu
-    activate Postgres
-    Postgres --> NestJS : Dữ liệu và tồn kho hiện tại
-    deactivate Postgres
-
-    NestJS -> NestJS : Tính lại giá, áp mã giảm giá (nếu có)
-
-    alt Đủ tồn kho và dữ liệu hợp lệ
-        NestJS -> Postgres : Trừ tồn kho nguyên tử, tạo Order PENDING\n(hạn 15 phút), OrderItem, lịch sử trạng thái
-        activate Postgres
-        Postgres --> NestJS : Commit, trả về mã đơn
-        deactivate Postgres
-
-        NestJS --> NextJS : Thông tin đơn PENDING và hạn thanh toán
+opt Giỏ hợp lệ và đã có JWT
+    NextJS -> NestJS : POST /api/orders {items} + Bearer JWT
+    NestJS -> NestJS : Validate DTO và xác thực JWT
+    NestJS -> Postgres : BEGIN transaction
+    NestJS -> Postgres : Đọc lại giá/tồn; tính tổng; trừ kho nguyên tử
+    Postgres --> NestJS : Kết quả cập nhật kho
+    alt Hợp lệ và đủ tồn
+        NestJS -> Postgres : Tạo Order PENDING, OrderItems và lịch sử trạng thái
+        Postgres --> NestJS : COMMIT + orderId
+        NestJS --> NextJS : Đơn PENDING và tổng tiền
         NextJS --> Customer : Hiển thị đơn chờ thanh toán
 
-    else Thiếu hàng hoặc mã giảm giá không hợp lệ
-        NestJS -> Postgres : Rollback transaction
-        activate Postgres
-        Postgres --> NestJS
-        deactivate Postgres
+        Customer -> NextJS : Chọn phương thức và xác nhận thanh toán
+        NextJS -> NestJS : POST /api/payments + JWT + Idempotency-Key
+        NestJS -> NestJS : Validate JWT, quyền sở hữu đơn và khóa idempotency
+        NestJS -> Postgres : Tra cứu hoặc tạo Payment PENDING
+        Postgres --> NestJS : Payment
+        NestJS -> PaymentService : Gửi amount lấy từ Order và phương thức
+        PaymentService --> NestJS : Kết quả thanh toán
 
-        NestJS --> NextJS : Trả lỗi (thiếu hàng / dữ liệu đơn)
-        deactivate NestJS
-        NextJS --> Customer : Thông báo lỗi, yêu cầu cập nhật giỏ hàng
-        deactivate NextJS
+        alt Thanh toán thành công
+            NestJS -> Postgres : Transaction: Payment SUCCEEDED, Order PAID, cộng điểm một lần
+            Postgres --> NestJS : COMMIT
+            NestJS --> NextJS : Kết quả PAID
+            NextJS --> Customer : Hiển thị xác nhận và mã đơn
+        else Thanh toán thất bại
+            NestJS -> Postgres : Transaction: Payment FAILED, Order PAYMENT_FAILED
+            Postgres --> NestJS : COMMIT
+            NestJS --> NextJS : Kết quả thất bại
+            NextJS --> Customer : Báo lỗi và cho phép thử thanh toán lại
+        end
+    else Thiếu hàng hoặc dữ liệu không hợp lệ
+        NestJS -> Postgres : ROLLBACK transaction
+        Postgres --> NestJS : Rollback hoàn tất
+        NestJS --> NextJS : Lỗi tạo đơn
+        NextJS --> Customer : Báo lỗi và yêu cầu cập nhật giỏ
     end
 end
 
+note over NextJS,Postgres
+Request lặp với cùng Idempotency-Key và cùng nội dung
+không tạo payment trùng; yêu cầu retry được xử lý theo trạng thái đã lưu.
+end note
 @enduml

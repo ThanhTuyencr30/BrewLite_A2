@@ -5,7 +5,7 @@ skinparam classAttributeIconSize 0
 
 title BrewLite – Class Diagram (Sơ đồ Lớp Kiến trúc Hệ thống)
 
-note "Code-aligned model: persisted entities follow backend/prisma/schema.prisma.\nAmounts use Int VND. Cart/CartItem are frontend state, not database models.\nBusiness operations are implemented mainly in NestJS services/scheduler rather than as Prisma model methods." as NoteArchitecture #FFF7ED
+note "Code-aligned model: persisted entities follow backend/prisma/schema.prisma.\nAmounts use Int VND. Cart/CartItem are frontend state, not database models.\nLoyaltyTransaction is a required domain concept but is not currently persisted; the implementation stores the balance on User.\nBusiness operations are implemented mainly in NestJS services/scheduler rather than as Prisma model methods." as NoteArchitecture #FFF7ED
 
 note "Customer / Barista chỉ là tác nhân (actor) trong Use Case, không phải model kế thừa User trong schema.\nPayment là một model duy nhất, phân biệt bằng method (WALLET, CARD, QR, VNPAY)." as NoteActors #FFF7ED
 
@@ -170,6 +170,22 @@ package "Database Entities (Prisma Models)" #EAF2F8 {
 }
 
 ' =========================
+' 1b. REQUIRED DOMAIN CONCEPT (NOT PERSISTED)
+' =========================
+package "Domain Concept (not persisted)" #FFF7ED {
+    class LoyaltyTransaction <<domain concept>> {
+        + id: String (UUID)
+        + userId: String (UUID)
+        + orderId: String (UUID)
+        + points: Int
+        + type: String (EARN / REVERSAL)
+        + createdAt: DateTime
+        --
+        Not a Prisma model in the current implementation
+    }
+}
+
+' =========================
 ' 2. FRONTEND CLIENT STATE
 ' =========================
 package "Frontend State (Client-Side)" #EAF2F8 {
@@ -298,6 +314,7 @@ package "Lớp xử lý Nghiệp vụ (NestJS Backend Services)" #E8F5E9 {
 User "1" -- "0..1" PasswordResetToken : reset token >
 User "1" -- "0..*" Order : places >
 User "1" -- "0..*" UserPromotion : claims >
+User "1" -- "0..*" LoyaltyTransaction : earns / reverses >
 
 Promotion "1" -- "0..*" UserPromotion : claimed by >
 Promotion "0..1" -- "0..*" Order : applied to >
@@ -318,6 +335,7 @@ Topping "1" -- "0..*" OrderItemTopping : referenced by >
 
 Order "1" -- "0..*" OrderStatusHistory : history >
 Order "1" -- "0..*" Payment : payments >
+Order "1" -- "0..*" LoyaltyTransaction : reward event >
 
 Cart "1" *-- "0..*" CartItem : contains >
 Product "1" -- "0..*" CartItem : cart line uses >
