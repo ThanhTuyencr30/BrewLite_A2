@@ -35,27 +35,27 @@ export class OrdersService {
     private orderStateMachine: OrderStateMachine,
   ) {}
 
-  // 1. Lấy danh sách đơn hàng (Hỗ trợ 4 tab: Tất cả, Đang xử lý, Hoàn thành, Đã hủy)
+
   async getMyOrders(userId: string, status?: OrderStatus) {
     return this.prisma.order.findMany({
-      where: { 
+      where: {
         userId: userId,
-        ...(status && { status: status }) 
+        ...(status && { status: status })
       },
       orderBy: { createdAt: 'desc' },
-      include: { 
+      include: {
         items: { include: { product: true, toppings: true } }
       }
     });
   }
 
-  // 2. Lấy chi tiết 1 đơn hàng (Kèm Timeline lịch sử trạng thái)
+
   async getOrderDetail(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { 
+      include: {
         items: { include: { product: true, toppings: true } },
-        statusHistory: true // Lấy lịch sử để vẽ Timeline
+        statusHistory: true
       }
     });
 
@@ -65,7 +65,7 @@ export class OrdersService {
     return order;
   }
 
-  // 3. Hủy đơn hàng (Transaction: Hoàn kho, hoàn tiền, trả mã, lưu log)
+
   async cancelOrder(orderId: string, userId: string, reason?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -82,18 +82,18 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
     if (order.userId !== userId) throw new BadRequestException('Không có quyền hủy đơn này');
 
-    // Kiểm tra State Machine (Chặn không cho hủy nếu đơn đã Hoàn tất)
+
     this.orderStateMachine.assertTransition(order.status, OrderStatus.CANCELLED);
 
     return this.prisma.$transaction(async (tx) => {
-      // 3.1. Cập nhật trạng thái đơn (Dùng Optimistic Locking với trường version)
+
       const updated = await tx.order.updateMany({
         where: { id: orderId, version: order.version },
         data: {
           status: OrderStatus.CANCELLED,
           cancelledAt: new Date(),
           cancelReason: reason || 'Khách hàng tự hủy',
-          version: { increment: 1 } // Tăng version để chống ghi đè đồng thời
+          version: { increment: 1 }
         },
       });
 
@@ -101,16 +101,16 @@ export class OrdersService {
         throw new BadRequestException('Đơn hàng vừa được cập nhật, vui lòng thử lại!');
       }
 
-      // 3.2. Ghi log lịch sử trạng thái (Dùng toStatus theo schema của bạn)
+
       await tx.orderStatusHistory.create({
-        data: { 
-          orderId: orderId, 
-          toStatus: OrderStatus.CANCELLED, 
-          note: reason || 'Khách hàng tự hủy' 
+        data: {
+          orderId: orderId,
+          toStatus: OrderStatus.CANCELLED,
+          note: reason || 'Khách hàng tự hủy'
         }
       });
 
-      // 3.3. Hoàn kho (Cộng lại số lượng sản phẩm)
+
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -118,10 +118,10 @@ export class OrdersService {
         });
       }
 
-      // 3.4. Hoàn lại nguyên liệu đã trừ theo công thức
+
       await restoreIngredients(tx, order.items);
 
-      // 3.5. Hoàn tiền (Nếu đơn đã thanh toán)
+
       const paidPayment = order.payments[0] ?? null;
       if (paidPayment) {
         await tx.payment.update({
@@ -129,7 +129,7 @@ export class OrdersService {
           data: { status: PaymentStatus.REFUNDED }
         });
 
-        // Trừ lại điểm thưởng đã cộng khi thanh toán (không để âm).
+
         const points = loyaltyPointsFor(order.total);
         const deducted = await tx.user.updateMany({
           where: { id: order.userId, loyaltyPoints: { gte: points } },
@@ -140,7 +140,7 @@ export class OrdersService {
         }
       }
 
-      // 3.6. Trả lại lượt dùng mã giảm giá (Nếu có)
+
       if (order.promotionId) {
         await tx.promotion.updateMany({
           where: { id: order.promotionId, usedCount: { gt: 0 } },
@@ -152,9 +152,9 @@ export class OrdersService {
     });
   }
 
-  // 4. Tạo đơn hàng (Transaction: kiểm tra giá/tồn kho, áp mã giảm giá, trừ kho)
+
   async createOrder(userId: string, dto: CreateOrderDto) {
-    // Mã đơn sinh ngẫu nhiên; nếu trùng (lỗi unique P2002) thì tạo lại toàn bộ transaction.
+
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.createOrderOnce(userId, dto);
@@ -253,7 +253,7 @@ export class OrdersService {
           promotion.maxDiscount === null ? rawDiscount : Math.min(rawDiscount, promotion.maxDiscount),
         );
 
-        // Tăng lượt dùng có điều kiện để không vượt usageLimit khi nhiều đơn tạo đồng thời
+
         const claimed = await tx.promotion.updateMany({
           where: {
             id: promotion.id,
@@ -267,7 +267,7 @@ export class OrdersService {
         promotionId = promotion.id;
       }
 
-      // Trừ kho dùng Optimistic Locking (Kiểm tra version)
+
       for (const item of processedItems) {
         const updatedProduct = await tx.product.updateMany({
           where: {
@@ -286,7 +286,7 @@ export class OrdersService {
         }
       }
 
-      // Trừ nguyên liệu theo công thức; nếu thiếu thì cả transaction hoàn tác.
+
       await deductIngredients(tx, processedItems);
 
       return tx.order.create({
