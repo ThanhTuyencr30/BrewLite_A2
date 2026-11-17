@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: brewlite-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @brewlite/api run prisma:generate && pnpm --filter @brewlite/api run build
+    startCommand: pnpm --filter @brewlite/api run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: VNPAY_TMN_CODE
+        sync: false
+      - key: VNPAY_HASH_SECRET
+        sync: false
+      - key: VNPAY_RETURN_URL
+        sync: false
+
+  - type: web
+    name: brewlite-web
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/brewlite?schema=public" pnpm install --frozen-lockfile --prod=false && pnpm --filter @brewlite/web run build
+    startCommand: pnpm --filter @brewlite/web run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
