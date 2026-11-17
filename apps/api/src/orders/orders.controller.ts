@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService } from './orders.service';
@@ -18,6 +19,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 
 type AuthenticatedRequest = Request & { user: { userId: string } };
 
+@ApiTags('Orders')
+@ApiBearerAuth()
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
@@ -43,6 +46,12 @@ export class OrdersController {
   }
 
   @Post(':id/cancel')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { reason: { type: 'string', example: 'Khách đổi ý' } },
+    },
+  })
   cancelOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest,
