@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { ApiBearerAuth, ApiHeader, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth/jwt-auth.guard";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
@@ -21,7 +22,6 @@ type AuthenticatedRequest = Request & { user: { userId: string } };
 
 const DEFAULT_FRONTEND_URL = "http://localhost:3000";
 
-// VNPay yêu cầu địa chỉ IPv4/IPv6 của khách; chuẩn hóa dạng ::ffff:1.2.3.4 và ::1.
 function getClientIp(request: Request): string {
   const forwarded = request.headers["x-forwarded-for"];
   const raw =
@@ -36,6 +36,8 @@ function getClientIp(request: Request): string {
   return ip === "::1" || ip === "" ? "127.0.0.1" : ip;
 }
 
+@ApiTags("Payments")
+@ApiBearerAuth()
 @Controller("payments")
 export class PaymentsController {
   constructor(
@@ -45,18 +47,17 @@ export class PaymentsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
+  @ApiHeader({ name: "idempotency-key", required: true })
   create(
     @Req() request: AuthenticatedRequest,
     @Body() dto: CreatePaymentDto,
     @Headers("idempotency-key") idempotencyKey: string
   ) {
-    // Chặn luồng nếu client quên gửi Idempotency-Key
     if (!idempotencyKey) {
       throw new BadRequestException(
         "Bắt buộc phải có Idempotency-Key trong Header"
       );
     }
-    // Truyền idempotencyKey vào service để kiểm tra trùng lặp
     return this.paymentsService.create(
       request.user.userId,
       dto,
@@ -65,8 +66,6 @@ export class PaymentsController {
     );
   }
 
-  // VNPay chuyển trình duyệt của khách về đây sau khi thanh toán. Không có JWT
-  // vì đây là redirect từ VNPay; tính xác thực dựa vào chữ ký.
   @Get("vnpay/return")
   @Redirect()
   async vnpayReturn(@Query() query: Record<string, string>) {
@@ -87,7 +86,6 @@ export class PaymentsController {
     return { url: target.toString() };
   }
 
-  // VNPay gọi server-to-server để báo kết quả; phải trả JSON đúng định dạng của VNPay.
   @Get("vnpay/ipn")
   async vnpayIpn(@Query() query: Record<string, string>) {
     const outcome = await this.paymentsService.handleVnpayCallback(query);
@@ -100,7 +98,6 @@ export class PaymentsController {
     return this.paymentsService.findOne(request.user.userId, id);
   }
 
-  // Giả lập ngân hàng xác nhận đã nhận chuyển khoản QR.
   @Post(":id/confirm")
   @UseGuards(JwtAuthGuard)
   confirmQr(@Req() request: AuthenticatedRequest, @Param("id") id: string) {
