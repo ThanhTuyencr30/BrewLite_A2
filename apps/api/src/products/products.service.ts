@@ -1,10 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma, SizeCode } from '../generated/prisma/client';
+import { FindProductsQueryDto } from './dto/find-products-query.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private normalizeText(text: string): string {
+    return text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase()
+      .trim();
+  }
 
   private async attachDynamicStock<
     T extends {
@@ -53,25 +64,14 @@ export class ProductsService {
     };
   }
 
-  async findAll(query?: {
-    search?: string;
-    categoryId?: string | number;
-    categorySlug?: string;
-  }) {
+  async findAll(query?: FindProductsQueryDto) {
     const where: Prisma.ProductWhereInput = {
       isAvailable: true,
     };
 
-    if (query?.search) {
-      where.name = { contains: query.search.trim(), mode: 'insensitive' };
-    }
-
-    if (query?.categoryId) {
-      where.categoryId = Number(query.categoryId);
-    }
-
-    if (query?.categorySlug) {
-      where.category = { slug: query.categorySlug };
+    // 1. Khớp đúng tên biến `category` từ FindProductsQueryDto
+    if (query?.category) {
+      where.category = { slug: query.category.trim() };
     }
 
     const products = await this.prisma.product.findMany({
@@ -87,8 +87,31 @@ export class ProductsService {
       orderBy: { id: 'asc' },
     });
 
-    // Dùng Promise.all để đợi tất cả các món cập nhật xong vào DB
-    return Promise.all(products.map((product) => this.attachDynamicStock(product)));
+    // 2. Lọc theo từ khóa search (hỗ trợ cả tiếng Việt có dấu & không dấu)
+    let filtered = products;
+    if (query?.search && query.search.trim() !== '') {
+      const keyword = this.normalizeText(query.search);
+      filtered = products.filter(
+        (p) =>
+          this.normalizeText(p.name).includes(keyword) ||
+          (p.description && this.normalizeText(p.description).includes(keyword)),
+      );
+    }
+
+    // 3. Tính tồn kho động và cập nhật DB
+    const withDynamicStock = await Promise.all(
+      filtered.map((product) => this.attachDynamicStock(product)),
+    );
+
+    // 4. Lọc theo trạng thái hết hàng (outOfStock) dựa trên số ly thật vừa tính
+    if (query?.outOfStock === 'true') {
+      return withDynamicStock.filter((p) => p.stock === 0);
+    }
+    if (query?.outOfStock === 'false') {
+      return withDynamicStock.filter((p) => p.stock > 0);
+    }
+
+    return withDynamicStock;
   }
 
   async findOne(id: number) {
