@@ -35,28 +35,26 @@ export class OrdersService {
     private orderStateMachine: OrderStateMachine,
   ) {}
 
-
   async getMyOrders(userId: string, status?: OrderStatus) {
     return this.prisma.order.findMany({
       where: {
         userId: userId,
-        ...(status && { status: status })
+        ...(status && { status: status }),
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        items: { include: { product: true, toppings: true } }
-      }
+        items: { include: { product: true, toppings: true } },
+      },
     });
   }
-
 
   async getOrderDetail(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
         items: { include: { product: true, toppings: true } },
-        statusHistory: true
-      }
+        statusHistory: true,
+      },
     });
 
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
@@ -64,7 +62,6 @@ export class OrdersService {
 
     return order;
   }
-
 
   async cancelOrder(orderId: string, userId: string, reason?: string) {
     const order = await this.prisma.order.findUnique({
@@ -76,24 +73,22 @@ export class OrdersService {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-      }
+      },
     });
 
     if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
     if (order.userId !== userId) throw new BadRequestException('Không có quyền hủy đơn này');
 
-
     this.orderStateMachine.assertTransition(order.status, OrderStatus.CANCELLED);
 
     return this.prisma.$transaction(async (tx) => {
-
       const updated = await tx.order.updateMany({
         where: { id: orderId, version: order.version },
         data: {
           status: OrderStatus.CANCELLED,
           cancelledAt: new Date(),
           cancelReason: reason || 'Khách hàng tự hủy',
-          version: { increment: 1 }
+          version: { increment: 1 },
         },
       });
 
@@ -101,34 +96,23 @@ export class OrdersService {
         throw new BadRequestException('Đơn hàng vừa được cập nhật, vui lòng thử lại!');
       }
 
-
       await tx.orderStatusHistory.create({
         data: {
           orderId: orderId,
           toStatus: OrderStatus.CANCELLED,
-          note: reason || 'Khách hàng tự hủy'
-        }
+          note: reason || 'Khách hàng tự hủy',
+        },
       });
 
-
-      for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } }
-        });
-      }
-
-
+      // Hoàn lại nguyên liệu vào kho theo công thức
       await restoreIngredients(tx, order.items);
-
 
       const paidPayment = order.payments[0] ?? null;
       if (paidPayment) {
         await tx.payment.update({
           where: { id: paidPayment.id },
-          data: { status: PaymentStatus.REFUNDED }
+          data: { status: PaymentStatus.REFUNDED },
         });
-
 
         const points = loyaltyPointsFor(order.total);
         const deducted = await tx.user.updateMany({
@@ -139,7 +123,6 @@ export class OrdersService {
           await tx.user.update({ where: { id: order.userId }, data: { loyaltyPoints: 0 } });
         }
       }
-
 
       if (order.promotionId) {
         await tx.promotion.updateMany({
@@ -152,9 +135,7 @@ export class OrdersService {
     });
   }
 
-
   async createOrder(userId: string, dto: CreateOrderDto) {
-
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.createOrderOnce(userId, dto);
@@ -186,16 +167,16 @@ export class OrdersService {
         });
 
         if (!product || !product.isAvailable) {
-          throw new NotFoundException(`Sản phẩm với ID ${item.productId} không tồn tại hoặc ngừng kinh doanh.`);
-        }
-
-        if (product.stock < item.quantity) {
-          throw new BadRequestException(`Món "${product.name}" không đủ số lượng trong kho.`);
+          throw new NotFoundException(
+            `Sản phẩm với ID ${item.productId} không tồn tại hoặc ngừng kinh doanh.`,
+          );
         }
 
         const sizeConfig = product.sizes.find((s) => s.size === item.size);
         if (!sizeConfig) {
-          throw new BadRequestException(`Size ${item.size} không hợp lệ cho sản phẩm ${product.name}.`);
+          throw new BadRequestException(
+            `Size ${item.size} không hợp lệ cho sản phẩm ${product.name}.`,
+          );
         }
 
         const unitPrice = product.basePrice + sizeConfig.additionalPrice;
@@ -211,7 +192,11 @@ export class OrdersService {
             throw new BadRequestException(`Topping "${topping.name}" không đủ số lượng.`);
           }
           lineTotal += topping.price * item.quantity;
-          toppings.push({ toppingId: topping.id, toppingName: topping.name, unitPrice: topping.price });
+          toppings.push({
+            toppingId: topping.id,
+            toppingName: topping.name,
+            unitPrice: topping.price,
+          });
         }
 
         subtotal += lineTotal;
@@ -236,12 +221,19 @@ export class OrdersService {
           where: { code: dto.discountCode.trim().toUpperCase() },
         });
 
-        if (!promotion || !promotion.isActive || promotion.startsAt > now || promotion.endsAt <= now) {
+        if (
+          !promotion ||
+          !promotion.isActive ||
+          promotion.startsAt > now ||
+          promotion.endsAt <= now
+        ) {
           throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
         }
 
         if (subtotal < promotion.minOrderValue) {
-          throw new BadRequestException(`Đơn hàng tối thiểu phải từ ${promotion.minOrderValue}đ để áp dụng.`);
+          throw new BadRequestException(
+            `Đơn hàng tối thiểu phải từ ${promotion.minOrderValue}đ để áp dụng.`,
+          );
         }
 
         const rawDiscount =
@@ -250,9 +242,10 @@ export class OrdersService {
             : promotion.value;
         discount = Math.min(
           subtotal,
-          promotion.maxDiscount === null ? rawDiscount : Math.min(rawDiscount, promotion.maxDiscount),
+          promotion.maxDiscount === null
+            ? rawDiscount
+            : Math.min(rawDiscount, promotion.maxDiscount),
         );
-
 
         const claimed = await tx.promotion.updateMany({
           where: {
@@ -267,26 +260,7 @@ export class OrdersService {
         promotionId = promotion.id;
       }
 
-
-      for (const item of processedItems) {
-        const updatedProduct = await tx.product.updateMany({
-          where: {
-            id: item.productId,
-            version: item.productVersion,
-            stock: { gte: item.quantity },
-          },
-          data: {
-            stock: { decrement: item.quantity },
-            version: { increment: 1 },
-          },
-        });
-
-        if (updatedProduct.count === 0) {
-          throw new BadRequestException(`Xung đột dữ liệu tồn kho cho sản phẩm ${item.productName}. Vui lòng thử lại.`);
-        }
-      }
-
-
+      // Kiểm tra và trừ nguyên liệu trực tiếp từ kho theo công thức từng size
       await deductIngredients(tx, processedItems);
 
       return tx.order.create({

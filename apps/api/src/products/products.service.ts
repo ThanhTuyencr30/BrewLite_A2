@@ -1,182 +1,113 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
-
-export type ProductSize = 'S' | 'M' | 'L';
-
-export interface ProductSizePrices {
-  S: number;
-  M: number;
-  L: number;
-}
-
-const productSelect = {
-  id: true,
-  name: true,
-  slug: true,
-  description: true,
-  basePrice: true,
-  imageUrl: true,
-  stock: true,
-  isAvailable: true,
-  category: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-  },
-  sizes: {
-    select: {
-      size: true,
-      additionalPrice: true,
-    },
-    orderBy: {
-      additionalPrice: 'asc',
-    },
-  },
-} satisfies Prisma.ProductSelect;
-
-type ProductRecord = Prisma.ProductGetPayload<{
-  select: typeof productSelect;
-}>;
-
-const menuOrder = new Map(
-  [
-    'ca-phe-sua', 'cappuccino', 'americano', 'caramel-macchiato', 'mocha', 'ca-phe-muoi',
-    'choco-latte', 'matcha-latte', 'freeze-chocolate', 'freeze-matcha',
-    'tra-cuc-sen-vang', 'tra-oi-hong', 'tra-vai', 'tra-dao', 'tra-xanh-dau-do', 'tra-dao-cam-sa',
-    'tra-olong-sua-nhai', 'tra-olong-sua-dua', 'tra-sua-truyen-thong', 'tra-sua-hongkong',
-    'tra-sua-matcha', 'tra-sua-duong-den', 'soda-viet-quoc', 'soda-dau', 'soda-chanh',
-    'soda-bac-ha', 'soda-chanh-day',
-  ].map((slug, index) => [slug, index]),
-);
-
-function normalizeSlugSearch(search: string): string {
-  return search
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[đĐ]/g, 'd')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-export interface FindProductsQuery {
-  search?: string;
-  category?: string;
-  outOfStock?: 'true' | 'false' | boolean;
-}
-
-export interface ProductSummary extends ProductRecord {
-  price: number;
-  isOutOfStock: boolean;
-  sizePrices: ProductSizePrices;
-}
-
-export interface ProductDetails {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  sizePrices: ProductSizePrices;
-  imageUrl: string;
-  stock: number;
-  isAvailable: boolean;
-}
+import { Prisma, SizeCode } from '../generated/prisma/client';
 
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: FindProductsQuery = {}): Promise<ProductSummary[]> {
-    const search = query.search?.trim();
-    const slugSearch = search ? normalizeSlugSearch(search) : '';
-    const category = query.category?.trim();
-    const outOfStockFilter =
-      query.outOfStock === 'true' || query.outOfStock === true
-        ? { stock: { lte: 0 } }
-        : query.outOfStock === 'false' || query.outOfStock === false
-          ? { stock: { gt: 0 } }
-          : {};
+  private async attachDynamicStock<
+    T extends {
+      id: number;
+      stock: number;
+      sizes: { size: SizeCode }[];
+      ingredients: {
+        size: SizeCode;
+        quantity: number;
+        ingredient: { stock: number };
+      }[];
+    },
+  >(product: T) {
+    const stockBySize: Record<string, number> = {};
 
-    const searchOr: Prisma.ProductWhereInput[] = [];
-    if (search) {
-      searchOr.push(
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      );
-      if (slugSearch) {
-        searchOr.push({ slug: { contains: slugSearch, mode: 'insensitive' } });
+    for (const s of product.sizes) {
+      const recipesForSize = product.ingredients.filter((r) => r.size === s.size);
+
+      if (recipesForSize.length === 0) {
+        stockBySize[s.size] = 0;
+        continue;
       }
+
+      const possibleCups = recipesForSize.map((r) =>
+        r.quantity > 0 ? Math.floor(r.ingredient.stock / r.quantity) : Infinity,
+      );
+      stockBySize[s.size] = Math.min(...possibleCups);
+    }
+
+    const dynamicStock = Math.max(...Object.values(stockBySize), 0);
+
+    // Tự động ghi đè số liệu thật vào cột stock trong database nếu có sự chênh lệch
+    if (product.stock !== dynamicStock) {
+      await this.prisma.product.update({
+        where: { id: product.id },
+        data: { stock: dynamicStock },
+      });
+    }
+
+    const { ingredients: _ingredients, ...rest } = product;
+
+    return {
+      ...rest,
+      stock: dynamicStock,
+      stockBySize,
+    };
+  }
+
+  async findAll(query?: {
+    search?: string;
+    categoryId?: string | number;
+    categorySlug?: string;
+  }) {
+    const where: Prisma.ProductWhereInput = {
+      isAvailable: true,
+    };
+
+    if (query?.search) {
+      where.name = { contains: query.search.trim(), mode: 'insensitive' };
+    }
+
+    if (query?.categoryId) {
+      where.categoryId = Number(query.categoryId);
+    }
+
+    if (query?.categorySlug) {
+      where.category = { slug: query.categorySlug };
     }
 
     const products = await this.prisma.product.findMany({
-      where: {
-        isAvailable: true,
-        ...outOfStockFilter,
-        category: {
-          isActive: true,
-          ...(category && category !== 'all' ? { slug: category } : {}),
+      where,
+      include: {
+        category: true,
+        sizes: true,
+        toppingLinks: { include: { topping: true } },
+        ingredients: {
+          include: { ingredient: { select: { stock: true } } },
         },
-        ...(searchOr.length > 0 ? { OR: searchOr } : {}),
       },
-      select: productSelect,
-      orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
+      orderBy: { id: 'asc' },
     });
 
-    return products
-      .map((product) => this.toSummary(product))
-      .sort(
-        (left, right) =>
-          (menuOrder.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
-          (menuOrder.get(right.slug) ?? Number.MAX_SAFE_INTEGER),
-      );
+    // Dùng Promise.all để đợi tất cả các món cập nhật xong vào DB
+    return Promise.all(products.map((product) => this.attachDynamicStock(product)));
   }
 
-  async findOne(id: number): Promise<ProductDetails> {
-    const product = await this.prisma.product.findFirst({
-      where: { id, isAvailable: true },
-      select: productSelect,
+  async findOne(id: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        sizes: true,
+        toppingLinks: { include: { topping: true } },
+        ingredients: {
+          include: { ingredient: { select: { stock: true } } },
+        },
+      },
     });
 
     if (!product) {
-      throw new NotFoundException(`Không tìm thấy sản phẩm có mã ${id}.`);
+      throw new NotFoundException(`Không tìm thấy sản phẩm ID ${id}`);
     }
 
-    return {
-      id: product.id,
-      name: product.name,
-      category: product.category.name,
-      price: product.basePrice,
-      sizePrices: this.toSizePrices(product),
-      imageUrl: product.imageUrl,
-      stock: product.stock,
-      isAvailable: product.isAvailable,
-    };
-  }
-
-  private toSummary(product: ProductRecord): ProductSummary {
-    return {
-      ...product,
-      price: product.basePrice,
-      isOutOfStock: product.stock <= 0,
-      sizePrices: this.toSizePrices(product),
-    };
-  }
-
-  private toSizePrices(product: ProductRecord): ProductSizePrices {
-    const prices: ProductSizePrices = {
-      S: product.basePrice,
-      M: product.basePrice,
-      L: product.basePrice,
-    };
-
-    for (const size of product.sizes) {
-      prices[size.size] = product.basePrice + size.additionalPrice;
-    }
-
-    return prices;
+    return await this.attachDynamicStock(product);
   }
 }
